@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -e
+
+PREFIX=$HOME/w
+
+die () { echo "$@" >&2; exit 2; }
+
+config=`realpath ${1:?Missing argument}`
+shift
+
+config_eval=`nix eval -f workspaces.nix --json --arg pkgs "import <nixpkgs> {}" --argstr config "$config" activation_scripts`
+
+declare -A workspaces
+eval "workspaces=(`jq -r 'to_entries | .[] | "[\(.key)]=\(.value | @sh)"' <<<"$config_eval"`)"
+
+if [[ $# -eq 0 ]]; then
+  for w in "${!workspaces[@]}"; do
+    echo "$w"
+  done
+else
+  w=$1
+  if [[ -z "${workspaces[$w]}" ]]; then
+    die "$w: No such workspace"
+  fi
+  p=$PREFIX/$w
+  mkdir -p "$p"
+  cd "$p"
+  exec bash "${workspaces[$w]}"/bin/activate
+fi
