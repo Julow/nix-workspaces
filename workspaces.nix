@@ -17,6 +17,12 @@ let
         description = "Script run when entering a workspace.";
       };
 
+      command = mkOption {
+        type = types.str;
+        default = "${pkgs.bashInteractive}/bin/bash";
+        description = "Command to run after activation.";
+      };
+
     };
 
     config = {};
@@ -34,7 +40,12 @@ let
     nameValuePair modules.config.name modules.config;
 
   make_activation_script = w:
-    pkgs.writeScriptBin "activate" w.activation_script;
+    pkgs.writeScriptBin "activate" ''
+      #!/usr/bin/env bash
+      set -e
+      ${w.activation_script}
+      exec ${w.command}
+    '';
 
   make_workspaces = config:
     rec {
