@@ -40,7 +40,14 @@ let
       default_name = { name = mkDefault name; };
 
       modules = evalModules {
-        modules = [ base_module default_name configuration ];
+        modules = [
+          base_module default_name # Base modules
+          modules/git.nix
+          configuration # User configuration
+        ];
+        args = {
+          inherit pkgs;
+        };
       };
     in
     nameValuePair modules.config.name modules.config;
