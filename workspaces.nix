@@ -23,6 +23,12 @@ let
         description = "Command to run after activation.";
       };
 
+      buildInputs = mkOption {
+        type = types.listOf types.package;
+        default = [];
+        description = "Workspace dependencies.";
+      };
+
     };
 
     config = {};
@@ -40,12 +46,16 @@ let
     nameValuePair modules.config.name modules.config;
 
   make_activation_script = w:
-    pkgs.writeScriptBin "activate" ''
-      #!/usr/bin/env bash
-      set -e
-      ${w.activation_script}
-      exec ${w.command}
-    '';
+    let
+      activate = pkgs.writeShellScriptBin "activate" ''
+        set -e
+        ${w.activation_script}
+        exec ${w.command}
+      '';
+    in
+    pkgs.mkShell {
+      buildInputs = [ activate ] ++ w.buildInputs;
+    };
 
   make_workspaces = config:
     rec {

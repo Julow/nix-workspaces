@@ -4,7 +4,8 @@
 
 {
   example = {
-    activation_script = '' echo hello '';
+    activation_script = '' hello '';
+    buildInputs = with pkgs; [ hello ];
   };
   example2 = {
     activation_script = '' echo world '';
