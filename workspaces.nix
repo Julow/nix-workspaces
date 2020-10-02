@@ -43,6 +43,7 @@ let
         modules = [
           base_module default_name # Base modules
           modules/git.nix
+          modules/vim.nix
           configuration # User configuration
         ];
         args = {
