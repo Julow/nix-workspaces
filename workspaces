@@ -23,8 +23,9 @@ else
   if [[ -z "${workspaces[$w]}" ]]; then
     die "$w: No such workspace"
   fi
+  activate=`nix-build --no-out-link "${workspaces[$w]}"`
   p=$PREFIX/$w
   mkdir -p "$p"
   cd "$p"
-  exec bash "${workspaces[$w]}"/bin/activate
+  exec "$activate"/bin/activate
 fi

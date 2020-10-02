@@ -39,7 +39,7 @@ let
   make_workspaces = config:
     rec {
       workspaces = mapAttrs' make_workspace config;
-      activation_scripts = mapAttrs (_: make_activation_script) workspaces;
+      activation_scripts = mapAttrs (_: w: (make_activation_script w).drvPath) workspaces;
     };
 
 in
