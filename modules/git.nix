@@ -22,6 +22,11 @@ let conf = config.git; in
       default = "origin";
     };
 
+    gitignore = mkOption {
+      type = types.lines;
+      default = "";
+      description = "Local gitignore rules.";
+    };
   };
 
   config = mkIf (conf.remotes != {}) {
@@ -36,6 +41,11 @@ let conf = config.git; in
       ${pkgs.bash}/bin/bash ${./sync_git_remotes.sh} <<"EOF"
       ${concatStringsSep "\n" (mapAttrsToList (n: u: "${n} ${u}") conf.remotes)}
       EOF
+
+      ${if config.git.gitignore == "" then "" else ''
+        # Gitignore
+        ln -sf "${builtins.toFile "${config.name}-vimrc" config.git.gitignore}" .git/info/exclude
+      ''}
 
       # If init, fetch remotes
       if [[ $did_init -eq 1 ]]; then
