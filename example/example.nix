@@ -37,6 +37,7 @@ rec {
     git.gitignore = ''
       /ignored
     '';
+    tools = [ ./example_tool.sh ];
   };
 
 }
