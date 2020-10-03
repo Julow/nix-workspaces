@@ -16,6 +16,9 @@ with lib;
     activation_script = ''
       ln -sf "${builtins.toFile "${config.name}-vimrc" config.vimrc}" .vimrc
     '';
+    git.gitignore = ''
+      /.vimrc
+    '';
 
   };
 }
