@@ -6,25 +6,67 @@ PREFIX=$HOME/w
 
 die () { echo "$@" >&2; exit 2; }
 
-config=`realpath ${1:?Missing argument}`
-shift
+# To variable 'workspaces'
+eval_workspaces ()
+{
+  local config_eval config
+  config=`realpath "$1"`
+  eval_json=`nix eval -f workspaces.nix --json --arg pkgs "import <nixpkgs> {}" --argstr config "$config" activation_scripts`
+  eval "workspaces=(`jq -r 'to_entries | .[] | "[\(.key)]=\(.value | @sh)"' <<<"$eval_json"`)"
+}
 
-config_eval=`nix eval -f workspaces.nix --json --arg pkgs "import <nixpkgs> {}" --argstr config "$config" activation_scripts`
-
-declare -A workspaces
-eval "workspaces=(`jq -r 'to_entries | .[] | "[\(.key)]=\(.value | @sh)"' <<<"$config_eval"`)"
-
-if [[ $# -eq 0 ]]; then
-  for w in "${!workspaces[@]}"; do
-    echo "$w"
-  done
-else
-  w=$1
-  if [[ -z "${workspaces[$w]}" ]]; then
-    die "$w: No such workspace"
-  fi
-  p=$PREFIX/$w
+open_workspace ()
+{
+  local wname="$1" wdrv="$2" p
+  p=$PREFIX/$wname
   mkdir -p "$p"
   cd "$p"
-  exec nix-shell "${workspaces[$w]}" --run "exec activate"
-fi
+  exec nix-shell "$wdrv" --run "exec activate"
+}
+
+# Options
+cmd=$1
+shift
+while getopts ":f:" opt; do
+	case "$opt" in
+		f) config=$OPTARG ;;
+		*) exit 2 ;;
+	esac
+done
+shift $((OPTIND-1))
+
+USAGE_OPEN="open -f <config> <workspace name>"
+USAGE_LIST="list -f <config>"
+
+declare -A workspaces
+eval_workspaces "$config"
+
+case "$cmd" in
+  "open")
+    wname=${1:?Usage: $0 $USAGE_OPEN}
+    wdrv="${workspaces[$wname]}"
+    if [[ -z "$wdrv" ]]; then
+      die "$wname: No such workspace"
+    fi
+    open_workspace "$wname" "$wdrv"
+    ;;
+
+  "list")
+    for wname in "${!workspaces[@]}"; do
+      echo "$wname"
+    done
+    ;;
+
+  *)
+    cat <<EOF >&2
+Usage: workspaces { open | list }
+
+  $USAGE_OPEN
+    Open the specified workspace. A directory in $PREFIX is created if it
+    doesn't exist, the activation script is run and finally the shell is opened.
+
+  $USAGE_LIST
+    List workspaces.
+EOF
+    ;;
+esac
