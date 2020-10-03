@@ -6,12 +6,14 @@ PREFIX=$HOME/w
 
 die () { echo "$@" >&2; exit 2; }
 
+WORKSPACES_NIX=${NIX_SRC-.}/workspaces.nix
+
 # To variable 'workspaces'
 eval_workspaces ()
 {
   local config_eval config
   config=`realpath "$1"`
-  eval_json=`nix eval -f workspaces.nix --json --arg pkgs "import <nixpkgs> {}" --argstr config "$config" activation_scripts`
+  eval_json=`nix eval -f "$WORKSPACES_NIX" --json --arg pkgs "import <nixpkgs> {}" --argstr config "$config" activation_scripts`
   eval "workspaces=(`jq -r 'to_entries | .[] | "[\(.key)]=\(.value | @sh)"' <<<"$eval_json"`)"
 }
 
@@ -25,8 +27,8 @@ open_workspace ()
 }
 
 # Options
-cmd=$1
-shift
+cmd=${1-}
+shift || true
 while getopts ":f:" opt; do
 	case "$opt" in
 		f) config=$OPTARG ;;
@@ -38,12 +40,11 @@ shift $((OPTIND-1))
 USAGE_OPEN="open -f <config> <workspace name>"
 USAGE_LIST="list -f <config>"
 
-declare -A workspaces
-eval_workspaces "$config"
-
 case "$cmd" in
   "open")
-    wname=${1:?Usage: $0 $USAGE_OPEN}
+    wname=${1:?Usage: workspaces $USAGE_OPEN}
+    declare -A workspaces
+    eval_workspaces "${config:?Usage: workspaces $USAGE_OPEN}"
     wdrv="${workspaces[$wname]}"
     if [[ -z "$wdrv" ]]; then
       die "$wname: No such workspace"
@@ -52,6 +53,8 @@ case "$cmd" in
     ;;
 
   "list")
+    declare -A workspaces
+    eval_workspaces "${config:?Usage: workspaces $USAGE_LIST}"
     for wname in "${!workspaces[@]}"; do
       echo "$wname"
     done
