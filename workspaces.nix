@@ -69,6 +69,7 @@ let
   make_workspaces = config:
     rec {
       workspaces = mapAttrs' make_workspace config;
+      workspace_names = mapAttrsToList (_: w: w.name) workspaces;
       activation_scripts = mapAttrs (_: w: (make_activation_script w).drvPath) workspaces;
     };
 

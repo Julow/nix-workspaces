@@ -8,13 +8,22 @@ die () { echo "$@" >&2; exit 2; }
 
 WORKSPACES_NIX=${NIX_SRC-.}/workspaces.nix
 
-# To variable 'workspaces'
+# To variable 'workspaces' (associative array)
 eval_workspaces ()
 {
   local config_eval config
   config=`realpath "$1"`
   eval_json=`nix eval -f "$WORKSPACES_NIX" --json --arg pkgs "import <nixpkgs> {}" --argstr config "$config" activation_scripts`
   eval "workspaces=(`jq -r 'to_entries | .[] | "[\(.key)]=\(.value | @sh)"' <<<"$eval_json"`)"
+}
+
+# To variables 'workspace_names' (array)
+eval_workspace_names ()
+{
+  local config_eval config
+  config=`realpath "$1"`
+  eval_json=`nix eval -f "$WORKSPACES_NIX" --json --arg pkgs "import <nixpkgs> {}" --argstr config "$config" workspace_names`
+  readarray -t workspace_names < <(jq -r '.[]' <<<"$eval_json")
 }
 
 open_workspace ()
@@ -53,9 +62,9 @@ case "$cmd" in
     ;;
 
   "list")
-    declare -A workspaces
-    eval_workspaces "${config:?Usage: workspaces $USAGE_LIST}"
-    for wname in "${!workspaces[@]}"; do
+    declare -a workspace_names
+    eval_workspace_names "${config:?Usage: workspaces $USAGE_LIST}"
+    for wname in "${workspace_names[@]}"; do
       echo "$wname"
     done
     ;;
