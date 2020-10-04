@@ -31,7 +31,11 @@ let
 
     };
 
-    config = {};
+    config = {
+      activation_script = ''
+        export WORKSPACE=${config.name}
+      '';
+    };
 
   };
 
