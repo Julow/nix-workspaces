@@ -13,9 +13,13 @@ let
       git config user.email "test@example.com"
       git config user.name "Example"
       echo "# Example" > README.md
-      git add README.md
+      cat > shell.nix <<EOF
+      { pkgs ? import <nixpkgs> {} }:
+      let hello2 = pkgs.writeScriptBin "hello2" "echo hello2"; in
+      pkgs.mkShell { buildInputs = [ hello2 ]; shellHook = "echo Hello 2"; }
+      EOF
+      git add README.md shell.nix
       git commit -am "Initial commit"
-      echo hello world > ignored
     '';
 
 in
@@ -38,6 +42,8 @@ rec {
       /ignored
     '';
     tools = [ ./example_tool.sh ];
+    activation_script = ''
+      echo hello world > ignored
+    '';
   };
-
 }

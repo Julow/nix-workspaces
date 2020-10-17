@@ -69,15 +69,15 @@ let
     rec {
       workspaces = mapAttrs' make_workspace config;
       workspace_names = mapAttrsToList (_: w: w.name) workspaces;
-      make_shell = { wname }:
+      make_shell = { wname, shell }:
         assert (builtins.hasAttr wname workspaces || throw "Workspace ${wname} not found");
         let
           w = builtins.getAttr wname workspaces;
           activate = make_activation_script w;
         in
-        pkgs.mkShell {
-          buildInputs = [ activate ] ++ w.buildInputs;
-        };
+        shell.overrideAttrs (o: {
+          buildInputs = [ activate ] ++ w.buildInputs ++ o.buildInputs;
+        });
     };
 
 in
