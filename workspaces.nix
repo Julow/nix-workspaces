@@ -59,22 +59,25 @@ let
     nameValuePair modules.config.name modules.config;
 
   make_activation_script = w:
-    let
-      activate = pkgs.writeShellScriptBin "activate" ''
-        set -e
-        ${w.activation_script}
-        exec ${w.command}
-      '';
-    in
-    pkgs.mkShell {
-      buildInputs = [ activate ] ++ w.buildInputs;
-    };
+    pkgs.writeShellScriptBin "activate" ''
+      set -e
+      ${w.activation_script}
+      exec ${w.command}
+    '';
 
   make_workspaces = config:
     rec {
       workspaces = mapAttrs' make_workspace config;
       workspace_names = mapAttrsToList (_: w: w.name) workspaces;
-      activation_scripts = mapAttrs (_: w: (make_activation_script w).drvPath) workspaces;
+      make_shell = { wname }:
+        assert (builtins.hasAttr wname workspaces || throw "Workspace ${wname} not found");
+        let
+          w = builtins.getAttr wname workspaces;
+          activate = make_activation_script w;
+        in
+        pkgs.mkShell {
+          buildInputs = [ activate ] ++ w.buildInputs;
+        };
     };
 
 in

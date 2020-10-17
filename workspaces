@@ -6,16 +6,7 @@ PREFIX=$HOME/w
 
 die () { echo "$@" >&2; exit 2; }
 
-WORKSPACES_NIX=${NIX_SRC-.}/workspaces.nix
-
-# To variable 'workspaces' (associative array)
-eval_workspaces ()
-{
-  local config_eval config
-  config=`realpath "$1"`
-  eval_json=`nix eval -f "$WORKSPACES_NIX" --json --arg pkgs "import <nixpkgs> {}" --argstr config "$config" activation_scripts`
-  eval "workspaces=(`jq -r 'to_entries | .[] | "[\(.key)]=\(.value | @sh)"' <<<"$eval_json"`)"
-}
+WORKSPACES_NIX=${NIX_SRC-`pwd`}/workspaces.nix
 
 # To variables 'workspace_names' (array)
 eval_workspace_names ()
@@ -28,11 +19,19 @@ eval_workspace_names ()
 
 open_workspace ()
 {
-  local wname="$1" wdrv="$2" p
+  local wname="$1" config
+  config=`realpath "$2"`
   p=$PREFIX/$wname
   mkdir -p "$p"
   cd "$p"
-  exec nix-shell "$wdrv" --run "exec activate"
+  exec nix-shell --run "exec activate" \
+    --argstr workspaces_nix "$WORKSPACES_NIX" \
+    --argstr config "$config" \
+    --argstr wname "$wname" \
+    -E '
+  { pkgs ? import <nixpkgs> {}, workspaces_nix, config, wname }:
+  let ws = import workspaces_nix { inherit pkgs config; }; in
+  ws.make_shell { inherit wname; }'
 }
 
 # Options
@@ -52,13 +51,7 @@ USAGE_LIST="list -f <config>"
 case "$cmd" in
   "open")
     wname=${1:?Usage: workspaces $USAGE_OPEN}
-    declare -A workspaces
-    eval_workspaces "${config:?Usage: workspaces $USAGE_OPEN}"
-    wdrv="${workspaces[$wname]}"
-    if [[ -z "$wdrv" ]]; then
-      die "$wname: No such workspace"
-    fi
-    open_workspace "$wname" "$wdrv"
+    open_workspace "$wname" "${config:?Usage: workspaces $USAGE_OPEN}"
     ;;
 
   "list")
