@@ -20,26 +20,31 @@ eval_workspace_names ()
 open_workspace ()
 {
   local wname="$1" config
-  local -a extra_args
+  local -a buildInputs
   config=`realpath "$2"`
   p=$PREFIX/$wname
-  mkdir -p "$p"
-  cd "$p"
-  if [[ -e shell.nix ]]; then
-    # In-tree shell.nix. Don't work on first open because the tree is created after this point.
-    extra_args+=(--arg shell_nix "./shell.nix");
-  fi
-  exec nix-shell --run "exec activate" "${extra_args[@]}" \
+
+  readarray -t buildInputs < <(
+    nix-build --no-out-link \
     --argstr workspaces_nix "$WORKSPACES_NIX" \
     --argstr config "$config" \
     --argstr wname "$wname" \
     -E '
-  { pkgs ? import <nixpkgs> {}, workspaces_nix, config, wname, shell_nix ? null }:
-  let
-    shell = if shell_nix == null then pkgs.mkShell {} else import shell_nix { inherit pkgs; };
-    ws = import workspaces_nix { inherit pkgs config; };
-  in
-  ws.make_shell { inherit wname shell; }'
+  { pkgs ? import <nixpkgs> {}, workspaces_nix, config, wname }:
+  let ws = import workspaces_nix { inherit pkgs config; }; in
+  ws.by_name { inherit wname; }')
+
+  mkdir -p "$p"
+  cd "$p"
+  nix-shell -p "${buildInputs[@]}" --run workspace-activate
+
+  local cmd="workspace-open"
+  local local_shell="$p/shell.nix"
+  if [[ -e $local_shell ]]; then
+    echo "Using $local_shell"
+    cmd="nix-shell '$local_shell' --run '$cmd'"
+  fi
+  nix-shell -p "${buildInputs[@]}" --run "$cmd"
 }
 
 # Options
