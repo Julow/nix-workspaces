@@ -11,7 +11,7 @@ let
     pkgs.writeShellScriptBin "vim" ''
       this=''${0%/vim}
       p=:$PATH:
-      p=''${p//:$this:/}
+      p=''${p//:$this:/:}
       p=''${p%:}
       export PATH=''${p#:}
       exec vim -c "source ${vimrc_file}" "$@"
