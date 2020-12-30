@@ -64,6 +64,18 @@ let
     in
     nameValuePair modules.config.name modules.config;
 
+  make_activation_script = w:
+    pkgs.writeShellScriptBin "workspace-activate" ''
+      ${w.activation_script}
+
+      if [[ -e ./shell.nix ]]; then
+        echo "Using shell.nix"
+        nix-shell ./shell.nix -- run '${w.command}'
+      else
+        ${w.command}
+      fi
+    '';
+
   make_workspaces = config:
     rec {
       workspaces = mapAttrs' make_workspace config;
@@ -73,10 +85,9 @@ let
         let
           w = builtins.getAttr wname workspaces;
           init = pkgs.writeShellScriptBin "workspace-init" w.init_script;
-          activate = pkgs.writeShellScriptBin "workspace-activate" w.activation_script;
-          open = pkgs.writeShellScriptBin "workspace-open" w.command;
+          activate = make_activation_script w;
         in
-        w.buildInputs ++ [ init activate open ];
+        w.buildInputs ++ [ init activate ];
     };
 
 in

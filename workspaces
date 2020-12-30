@@ -50,14 +50,6 @@ open_workspace ()
 
   cd "$p"
   nix-shell -p "${buildInputs[@]}" --run workspace-activate || wait_input_and_exit "Activating failed."
-
-  local cmd="workspace-open"
-  local local_shell="$p/shell.nix"
-  if [[ -e $local_shell ]]; then
-    echo "Using $local_shell"
-    cmd="nix-shell '$local_shell' --run '$cmd'"
-  fi
-  nix-shell -p "${buildInputs[@]}" --run "$cmd" || wait_input_and_exit "Opening failed."
 }
 
 # Options
