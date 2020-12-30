@@ -3,10 +3,18 @@
 set -e
 
 PREFIX=$HOME/w
-
-die () { echo "$@" >&2; exit 2; }
-
 WORKSPACES_NIX=${NIX_SRC-`pwd`}/workspaces.nix
+
+# Hold and wait for input before exiting after an error.
+# So 'xterm -e workspaces open -f ...' don't exit immediately on error
+wait_input_and_exit ()
+{
+  local x=$?
+  echo "$@" >&2
+  echo "Press enter to close." >&2
+  read
+  exit $x
+}
 
 # To variables 'workspace_names' (array)
 eval_workspace_names ()
@@ -32,11 +40,11 @@ open_workspace ()
     -E '
   { pkgs ? import <nixpkgs> {}, workspaces_nix, config, wname }:
   let ws = import workspaces_nix { inherit pkgs config; }; in
-  ws.by_name { inherit wname; }')
+  ws.by_name { inherit wname; }') || wait_input_and_exit "Building of $wname in $2 failed."
 
   mkdir -p "$p"
   cd "$p"
-  nix-shell -p "${buildInputs[@]}" --run workspace-activate
+  nix-shell -p "${buildInputs[@]}" --run workspace-activate || wait_input_and_exit "Activating failed."
 
   local cmd="workspace-open"
   local local_shell="$p/shell.nix"
@@ -44,7 +52,7 @@ open_workspace ()
     echo "Using $local_shell"
     cmd="nix-shell '$local_shell' --run '$cmd'"
   fi
-  nix-shell -p "${buildInputs[@]}" --run "$cmd"
+  nix-shell -p "${buildInputs[@]}" --run "$cmd" || wait_input_and_exit "Opening failed."
 }
 
 # Options
