@@ -11,6 +11,12 @@ let
         description = "Workspace name. Defaults to the attribute name used to define it.";
       };
 
+      init_script = mkOption {
+        type = types.lines;
+        default = "";
+        description = "Run when the workspace is activated for the first time.";
+      };
+
       activation_script = mkOption {
         type = types.lines;
         default = "";
@@ -66,10 +72,11 @@ let
         assert (builtins.hasAttr wname workspaces || throw "Workspace ${wname} not found");
         let
           w = builtins.getAttr wname workspaces;
+          init = pkgs.writeShellScriptBin "workspace-init" w.init_script;
           activate = pkgs.writeShellScriptBin "workspace-activate" w.activation_script;
           open = pkgs.writeShellScriptBin "workspace-open" w.command;
         in
-        w.buildInputs ++ [ activate open ];
+        w.buildInputs ++ [ init activate open ];
     };
 
 in

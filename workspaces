@@ -42,7 +42,12 @@ open_workspace ()
   let ws = import workspaces_nix { inherit pkgs config; }; in
   ws.by_name { inherit wname; }') || wait_input_and_exit "Building of $wname in $2 failed."
 
-  mkdir -p "$p"
+  if ! [[ -d "$p" ]]; then
+    mkdir -p "$p"
+    cd "$p"
+    nix-shell -p "${buildInputs[@]}" --run workspace-init || wait_input_and_exit "Initialisation failed."
+  fi
+
   cd "$p"
   nix-shell -p "${buildInputs[@]}" --run workspace-activate || wait_input_and_exit "Activating failed."
 

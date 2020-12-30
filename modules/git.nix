@@ -2,7 +2,17 @@
 
 with lib;
 
-let conf = config.git; in
+let
+  conf = config.git;
+
+  sync_remotes = ''
+    # Sync remotes
+    ${pkgs.bash}/bin/bash ${./sync_git_remotes.sh} <<"EOF"
+    ${concatStringsSep "\n" (mapAttrsToList (n: u: "${n} ${u}") conf.remotes)}
+    EOF
+  '';
+
+in
 
 {
   options.git = {
@@ -32,26 +42,20 @@ let conf = config.git; in
   config = mkIf (conf.remotes != {}) {
     buildInputs = with pkgs; [ git ];
 
-    activation_script = ''
-      # Init if not already
-      did_init=0
-      if ! [[ -e .git ]]; then git init; did_init=1; fi
+    init_script = ''
+      git init
+      ${sync_remotes}
+      git fetch --all
+      git checkout --track "${conf.main_remote}/${conf.main_branch}"
+    '';
 
-      # Sync remotes
-      ${pkgs.bash}/bin/bash ${./sync_git_remotes.sh} <<"EOF"
-      ${concatStringsSep "\n" (mapAttrsToList (n: u: "${n} ${u}") conf.remotes)}
-      EOF
+    activation_script = ''
+      ${sync_remotes}
 
       ${if config.git.gitignore == "" then "" else ''
         # Gitignore
-        ln -sf "${builtins.toFile "${config.name}-vimrc" config.git.gitignore}" .git/info/exclude
+        ln -sf "${builtins.toFile "${config.name}-gitignore" conf.gitignore}" .git/info/exclude
       ''}
-
-      # If init, fetch remotes
-      if [[ $did_init -eq 1 ]]; then
-        git fetch --all
-        git checkout --track "${conf.main_remote}/${conf.main_branch}"
-      fi
     '';
 
   };
