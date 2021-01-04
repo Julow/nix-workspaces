@@ -70,7 +70,7 @@ let
 
       if [[ -e ./shell.nix ]]; then
         echo "Using shell.nix"
-        nix-shell ./shell.nix -- run '${w.command}'
+        nix-shell ./shell.nix --run '${w.command}'
       else
         ${w.command}
       fi
