@@ -3,8 +3,8 @@
 with lib;
 
 let
-  # Wrap vim to source the local vimrc
-  make_wrapped_vim = vimrc:
+  # Wrap vim to source the local vimrc and to specify the per-workspace viminfo
+  wrapped_vim =
     let vimrc_file = builtins.toFile "${config.name}-vimrc" config.vimrc; in
     # Expect vim to be in the user's environment on purpose,
     # to avoid shadowing an existing override/wrap
@@ -14,7 +14,7 @@ let
       p=''${p//:$this:/:}
       p=''${p%:}
       export PATH=''${p#:}
-      exec vim -c "source ${vimrc_file}" "$@"
+      exec vim -c "source ${vimrc_file}" -i "$HOME/${config.cache_dir}/viminfo" "$@"
     '';
 in
 
@@ -29,7 +29,7 @@ in
   };
 
   config = mkIf (config.vimrc != "") {
-    buildInputs = [ (make_wrapped_vim config.vimrc) ];
+    buildInputs = [ wrapped_vim ];
 
   };
 }
