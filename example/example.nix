@@ -32,9 +32,13 @@ rec {
 
   example2 = {
     imports = [ example ];
-    vimrc = ''
-      set modeline
-    '';
+    vim = {
+      enable = true;
+      bin = "${pkgs.vim}/bin/vim";
+      vimrc = ''
+        let g:custom_vimrc_loaded = 1
+      '';
+    };
     git.remotes = {
       origin = "${example_repo}";
     };
