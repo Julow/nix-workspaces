@@ -8,7 +8,14 @@ let
   wrapped_vim = { bin, vimrc }:
     let vimrc_file = builtins.toFile "${config.name}-vimrc" vimrc;
     in pkgs.writeShellScript "wrapped-vim" ''
-      exec ${bin} -c "source ${vimrc_file}" -i "$HOME/${config.cache_dir}/viminfo" "$@"
+      CACHE=$HOME/${config.cache_dir}
+      mkdir -p "$CACHE"
+      VIMINFO=$CACHE/viminfo
+      SESSION=$CACHE/session.vim
+      if ! [[ -e $SESSION ]]; then
+        echo "let v:this_session = '$SESSION'" > $SESSION
+      fi
+      exec ${bin} -i "$VIMINFO" -S "${vimrc_file}" -S "$SESSION" "$@"
     '';
 
   # A script that calls 'vim' from the user's env.
@@ -40,5 +47,11 @@ in {
 
   config = mkIf (config.vim.enable != "") {
     command = "exec ${wrapped_vim { inherit (config.vim) bin vimrc; }}";
+    vim.vimrc = ''
+      " Remove some session options to make it work better with automatic sessions
+      set sessionoptions=blank,help,tabpages,winsize,terminal
+
+      autocmd VimLeave * execute "mksession!" v:this_session
+    '';
   };
 }
