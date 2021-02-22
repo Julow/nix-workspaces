@@ -43,6 +43,12 @@ let
           "Directory for per-workspace cache, relative to the home directory. Used to store history files and other unimportant things.";
       };
 
+      local_shell = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Whether to build and use a local 'shell.nix'.";
+      };
+
     };
 
     config = {
@@ -73,15 +79,19 @@ let
     in nameValuePair modules.config.name modules.config;
 
   make_activation_script = w:
+    let
+      do_activate =
+        if w.local_shell then
+          ''
+            if [[ -e ./shell.nix ]];
+            then nix-shell ./shell.nix --run '${w.command}'
+            else ${w.command}; fi
+          ''
+        else w.command;
+    in
     pkgs.writeShellScriptBin "workspace-activate" ''
       ${w.activation_script}
-
-      if [[ -e ./shell.nix ]]; then
-        echo "Using shell.nix"
-        nix-shell ./shell.nix --run '${w.command}'
-      else
-        ${w.command}
-      fi
+      ${do_activate}
     '';
 
   make_workspaces = config: rec {
