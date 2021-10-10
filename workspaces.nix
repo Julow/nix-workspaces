@@ -71,6 +71,7 @@ let
           modules/git.nix
           modules/vim.nix
           modules/tools.nix
+          modules/xdg.nix
           configuration # User configuration
         ];
         args = { inherit pkgs; };
