@@ -5,23 +5,16 @@ with lib;
 let
   conf = config.git;
 
-  # Sync remotes
-  sync_remotes = ''
-    ${pkgs.bash}/bin/bash ${./sync_git_remotes.sh} <<"EOF"
-    ${concatStringsSep "\n" (mapAttrsToList (n: u: "${n} ${u}") conf.remotes)}
-    EOF
-  '';
+  esc = escapeShellArg;
 
-  # Sync the MAIN symbolic ref
-  # Also update the 'init.defaultBranch' config in case it's used by some scripts
-  sync_default_branch = ''
-    main=MAIN
-    def_branch=${escapeShellArg conf.main_branch}
-    main_ref=refs/heads/$def_branch
-    if [[ `git symbolic-ref "$main" 2>/dev/null` != $main_ref ]]; then
-      git symbolic-ref "$main" "$main_ref"
-      git config init.defaultBranch "$def_branch"
-    fi
+  mapAttrsToLines = f: attrs: concatStringsSep "\n" (mapAttrsToList f attrs);
+
+  update_states = ''
+    . ${./git_update_states.sh}
+
+    ${mapAttrsToLines (n: u: "update_remote ${esc n} ${esc u}") conf.remotes}
+
+    update_default_branch ${esc conf.main_branch}
   '';
 in
 
@@ -60,15 +53,13 @@ in
 
     init_script = ''
       git init
-      ${sync_default_branch}
-      ${sync_remotes}
+      ${update_states}
       git fetch --all
-      git checkout --track ${escapeShellArg "${conf.main_remote}/${conf.main_branch}"}
+      git checkout --track ${esc "${conf.main_remote}/${conf.main_branch}"}
     '';
 
     activation_script = ''
-      ${sync_default_branch}
-      ${sync_remotes}
+      ${update_states}
 
       ${if config.git.gitignore == "" then "" else ''
         # Gitignore
