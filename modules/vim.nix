@@ -13,7 +13,7 @@ let
   viminfo_path_esc = ''"$HOME"/${escapeShellArg config.cache_dir}/viminfo'';
   session_path_esc = ''"$HOME"/${escapeShellArg config.cache_dir}/session.vim'';
 
-  vimrc_file = builtins.toFile "${config.name}-vimrc" config.vim.vimrc;
+  vimrc_file = builtins.toFile "vimrc" config.vim.vimrc;
 
 in {
   options = {
