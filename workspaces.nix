@@ -94,24 +94,43 @@ let
         mkdir -p "$HOME/${w.cache_dir}"
       '';
     in ''
+      #!${pkgs.runtimeShell}
       ${pre_activation_script}
       ${w.activation_script}
       ${do_activate}
     '';
 
+  # The derivation for a workspace
+  # Contains the scripts 'workspace-init' and 'workspace-activate' and has the
+  # dependencies as 'propagatedBuildInputs'
   make_drv = w:
-    let
-      init = pkgs.writeShellScriptBin "workspace-init" w.init_script;
-      activate = pkgs.writeShellScriptBin "workspace-activate"
-        (make_activation_script w);
-      # Turn a list of dependencies into a single derivation with propagatedBuildInputs
-    in pkgs.stdenvNoCC.mkDerivation {
+    pkgs.stdenvNoCC.mkDerivation {
       name = strings.sanitizeDerivationName w.name;
-      propagatedBuildInputs = w.buildInputs ++ [ init activate ];
+      propagatedBuildInputs = w.buildInputs;
+
+      passAsFile = [ "init_script" "activation_script" ];
+      init_script = ''
+        #!${pkgs.runtimeShell}
+        ${w.init_script}
+      '';
+      activation_script = make_activation_script w;
+
+      # The same build and check phases as 'pkgs.writeShellScriptBin' inlined
+      # here to avoid generating many store paths.
+      buildPhase = ''
+        mkdir -p $out/bin
+        mv $init_scriptPath $out/bin/workspace-init
+        chmod +x $out/bin/workspace-init
+        ${pkgs.stdenv.shell} -n $out/bin/workspace-init
+        mv $activation_scriptPath $out/bin/workspace-activate
+        chmod +x $out/bin/workspace-activate
+        ${pkgs.stdenv.shell} -n $out/bin/workspace-activate
+      '';
+      preferLocalBuild = true;
+      allowSubstitutes = false;
+
       # fixupPhase does the "propagatedBuildInputs" thing
-      phases = [ "installPhase" "fixupPhase" ];
-      # installPhase to avoid the "No such file or directory" errors
-      installPhase = "mkdir -p $out";
+      phases = [ "buildPhase" "fixupPhase" ];
     };
 
   # Hard code workspace derivation paths into the script
