@@ -53,7 +53,6 @@ let
 
     config = {
       activation_script = ''
-        mkdir -p "$HOME/${config.cache_dir}"
         export WORKSPACE=${config.name}
         export HISTFILE=$HOME/${config.cache_dir}/bash_history
       '';
@@ -82,11 +81,20 @@ let
     let
       do_activate = if w.local_shell then ''
         if [[ -e ./shell.nix ]];
-        then nix-shell ./shell.nix --run '${w.command}'
-        else ${w.command}; fi
+        then
+          exec nix-shell ./shell.nix --run ${escapeShellArg w.command}
+        else
+          ${w.command}
+        fi
       '' else
         w.command;
+
+      # Make sure the cache directory is available to the activation script
+      pre_activation_script = ''
+        mkdir -p "$HOME/${w.cache_dir}"
+      '';
     in ''
+      ${pre_activation_script}
       ${w.activation_script}
       ${do_activate}
     '';

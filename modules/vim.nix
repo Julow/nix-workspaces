@@ -3,26 +3,17 @@
 with lib;
 
 let
-  # Wrap vim to source the local vimrc and to specify the per-workspace viminfo
-  # This will be set to the 'command' option.
-  wrapped_vim = { bin, vimrc }:
-    let vimrc_file = builtins.toFile "${config.name}-vimrc" vimrc;
-    in pkgs.writeShellScript "wrapped-vim" ''
-      CACHE=$HOME/${config.cache_dir}
-      mkdir -p "$CACHE"
-      VIMINFO=$CACHE/viminfo
-      SESSION=$CACHE/session.vim
-      if ! [[ -e $SESSION ]]; then
-        echo "let v:this_session = '$SESSION'" > $SESSION
-      fi
-      exec ${bin} -i "$VIMINFO" -S "${vimrc_file}" -S "$SESSION" "$@"
-    '';
-
   # A script that calls 'vim' from the user's env.
   # This is the default value for the 'vim.bin' option.
   impure_vim = pkgs.writeShellScript "impure-vim" ''
     exec vim "$@"
   '';
+
+  # Escaped for bash
+  viminfo_path_esc = ''"$HOME"/${escapeShellArg config.cache_dir}/viminfo'';
+  session_path_esc = ''"$HOME"/${escapeShellArg config.cache_dir}/session.vim'';
+
+  vimrc_file = builtins.toFile "${config.name}-vimrc" config.vim.vimrc;
 
 in {
   options = {
@@ -46,7 +37,18 @@ in {
   };
 
   config = mkIf (config.vim.enable != "") {
-    command = "exec ${wrapped_vim { inherit (config.vim) bin vimrc; }}";
+    command = ''
+      exec ${config.vim.bin} -i ${viminfo_path_esc} -S ${vimrc_file} -S ${session_path_esc}
+    '';
+
+    activation_script = ''
+      session_path=${session_path_esc}
+      if ! [[ -e $session_path ]]; then
+        echo "let v:this_session = \"$session_path\"" > "$session_path"
+      fi
+
+    '';
+
     vim.vimrc = ''
       " Remove some session options to make it work better with automatic sessions
       set sessionoptions=blank,help,tabpages,winsize,terminal
