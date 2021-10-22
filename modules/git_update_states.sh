@@ -2,9 +2,11 @@
 
 # Read old git remotes
 declare -A old_remotes
-while read name url rest; do
-  old_remotes+=(["$name"]="$url")
-done < <(git remote -v)
+if [[ -d .git ]]; then # When called from the initialization script
+  while read name url rest; do
+    old_remotes+=(["$name"]="$url")
+  done < <(git remote -v)
+fi
 
 # Sync remotes
 update_remote ()
@@ -29,5 +31,6 @@ update_default_branch ()
   if [[ `git symbolic-ref "$main" 2>/dev/null` != $main_ref ]]; then
     git symbolic-ref "$main" "$main_ref"
     git config init.defaultBranch "$dst"
+    echo "Using '$dst' as the default branch." >&2
   fi
 }

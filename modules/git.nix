@@ -9,30 +9,51 @@ let
 
   mapAttrsToLines = f: attrs: concatStringsSep "\n" (mapAttrsToList f attrs);
 
-  update_states = ''
-    . ${./git_update_states.sh}
+  origin_url = getAttr conf.main_remote conf.remotes;
 
-    ${mapAttrsToLines (n: u: "update_remote ${esc n} ${esc u}") conf.remotes}
-
-    update_default_branch ${esc conf.main_branch}
+  # If the 'main_remote' option correspond to a configured remote,
+  # Use 'git clone' if possible, fallback to 'git init' if the
+  # 'main_remote' option doesn't correspond to a configured remote.
+  # If the main branch is set to be guessed, it might only be set in the
+  # 'git clone' branch and won't be set in the fallback branch.
+  init_repository = if hasAttr conf.main_remote conf.remotes then ''
+    git clone --origin=${esc conf.main_remote} ${esc origin_url} .
+    ${if conf.main_branch == null then ''
+      # Set the 'MAIN' symbolic ref to the HEAD advertised by the remote.
+      update_default_branch "$(git symbolic-ref --short HEAD)"
+    '' else
+      ""}
+  '' else ''
+    git init ${
+      if conf.main_branch != null then
+        "--initial-branch=${esc conf.main_branch}"
+      else
+        ""
+    }
   '';
-in
 
-{
+  update_remotes = ''
+    ${mapAttrsToLines (n: u: "update_remote ${esc n} ${esc u}") conf.remotes}
+  '';
+
+in {
   options.git = {
     remotes = mkOption {
       type = types.attrsOf types.str;
-      default = {};
+      default = { };
       description = "Git remotes.";
     };
 
     main_branch = mkOption {
-      type = types.str;
-      default = "master";
+      type = types.nullOr types.str;
+      default = null;
       description = ''
         Defines the 'MAIN' symbolic ref.
         Also used to set the 'init.defaultBranch' config and for the initial
         checkout.
+        By default, the default branch is taken from the remote repository
+        during the initial checkout. This can only work if the 'main_remote'
+        option is set to a configured remote.
       '';
     };
 
@@ -48,18 +69,25 @@ in
     };
   };
 
-  config = mkIf (conf.remotes != {}) {
+  config = mkIf (conf.remotes != { }) {
     buildInputs = with pkgs; [ git ];
 
     init_script = ''
-      git init
-      ${update_states}
+      . ${./git_update_states.sh}
+      ${init_repository}
+      ${update_remotes}
       git fetch --all
-      git checkout --track ${esc "${conf.main_remote}/${conf.main_branch}"}
     '';
 
     activation_script = ''
-      ${update_states}
+      . ${./git_update_states.sh}
+
+      ${update_remotes}
+
+      ${if conf.main_branch == null then
+        ""
+      else
+        "update_default_branch ${esc conf.main_branch}"}
 
       ${if config.git.gitignore == "" then "" else ''
         # Gitignore
