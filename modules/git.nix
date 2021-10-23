@@ -36,6 +36,18 @@ let
     ${mapAttrsToLines (n: u: "update_remote ${esc n} ${esc u}") conf.remotes}
   '';
 
+  # If the 'main_branch' option is set, make sure it is uptodate
+  update_default_branch = if conf.main_branch == null then
+    ""
+  else
+    "update_default_branch ${esc conf.main_branch}";
+
+  update_gitignore = if config.git.gitignore == "" then
+    ""
+  else ''
+    ln -sf "${builtins.toFile "gitignore" conf.gitignore}" .git/info/exclude
+  '';
+
 in {
   options.git = {
     remotes = mkOption {
@@ -81,19 +93,9 @@ in {
 
     activation_script = ''
       . ${./git_update_states.sh}
-
       ${update_remotes}
-
-      ${if conf.main_branch == null then
-        ""
-      else
-        "update_default_branch ${esc conf.main_branch}"}
-
-      ${if config.git.gitignore == "" then "" else ''
-        # Gitignore
-        ln -sf "${builtins.toFile "${config.name}-gitignore" conf.gitignore}" .git/info/exclude
-      ''}
+      ${update_default_branch}
+      ${update_gitignore}
     '';
-
   };
 }
