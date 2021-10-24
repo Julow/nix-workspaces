@@ -84,11 +84,13 @@ in {
   config = mkIf (conf.remotes != { }) {
     buildInputs = with pkgs; [ git ];
 
+    # 'init_repository' might or might not fetch the main remote. In any case,
+    # fetch again to be sure to have all the remotes and tags.
     init_script = ''
       . ${./git_update_states.sh}
       ${init_repository}
       ${update_remotes}
-      git fetch --all
+      git fetch --all --tags --update-head-ok --no-show-forced-updates --force
     '';
 
     activation_script = ''
