@@ -66,6 +66,7 @@ let
 
       modules = evalModules {
         modules = [
+          { _module.args = { inherit pkgs; }; }
           base_module
           default_name # Base modules
           modules/git.nix
@@ -74,7 +75,6 @@ let
           modules/xdg.nix
           configuration # User configuration
         ];
-        args = { inherit pkgs; };
       };
     in modules.config;
 
