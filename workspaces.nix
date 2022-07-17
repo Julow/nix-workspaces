@@ -78,59 +78,62 @@ let
       };
     in modules.config;
 
-  make_activation_script = w:
-    let
-      do_activate = if w.local_shell then ''
-        if [[ -e ./shell.nix ]];
-        then
-          exec nix-shell ./shell.nix --run ${escapeShellArg w.command}
-        else
-          ${w.command}
+  make_activate_command = w:
+    if w.local_shell then ''
+        if [[ -e ./shell.nix ]]
+        then exec nix-shell ./shell.nix --run ${escapeShellArg w.command}
+        else ${w.command}
         fi
-      '' else
-        w.command;
+    '' else
+      w.command;
 
-      # Make sure the cache directory is available to the activation script
-      pre_activation_script = ''
-        mkdir -p "$HOME/${w.cache_dir}"
-      '';
-    in ''
-      #!${pkgs.runtimeShell}
-      ${pre_activation_script}
-      ${w.activation_script}
-      ${do_activate}
-    '';
+  stdenv = pkgs.stdenvNoCC;
 
-  # The derivation for a workspace
-  # Contains the scripts 'workspace-init' and 'workspace-activate' and has the
-  # dependencies as 'propagatedBuildInputs'
+  # Generate the 'workspace-init' and 'workspace-activate' script for the
+  # workspace.
   make_drv = w:
-    pkgs.stdenvNoCC.mkDerivation {
+    stdenv.mkDerivation {
       name = strings.sanitizeDerivationName w.name;
-      propagatedBuildInputs = w.buildInputs;
+
+      inherit (w) buildInputs;
 
       passAsFile = [ "init_script" "activation_script" ];
       init_script = ''
         #!${pkgs.runtimeShell}
         ${w.init_script}
       '';
-      activation_script = make_activation_script w;
+      activation_script = ''
+        mkdir -p "$HOME/${w.cache_dir}"
+        ${w.activation_script}
+        ${make_activate_command w}
+      '';
 
-      # The same build and check phases as 'pkgs.writeShellScriptBin' inlined
-      # here to avoid generating many store paths.
+      # Similar to 'pkgs.writeShellScriptBin', inlined to avoid generating many
+      # store paths.
+      # Some build variables defined by stdenv are hardcoded into the
+      # activation script to avoid needing 'nix-shell': 'PATH' and some
+      # variables used by pkg-config, gcc and ld wrappers.
       buildPhase = ''
         mkdir -p $out/bin
         mv $init_scriptPath $out/bin/workspace-init
         chmod +x $out/bin/workspace-init
-        ${pkgs.stdenv.shell} -n $out/bin/workspace-init
-        mv $activation_scriptPath $out/bin/workspace-activate
+        ${stdenv.shell} -n $out/bin/workspace-init
+        {
+          echo "#!${pkgs.runtimeShell}"
+          echo "PATH='$PATH':\"\$PATH\""
+          for v in ''${!NIX_*}; do
+            if [[ $v = *_FOR_TARGET || $v = *_TARGET_TARGET_* ]]; then
+              echo "export $v=''\'''${!v}'"
+            fi
+          done
+          cat $activation_scriptPath
+        } > $out/bin/workspace-activate
         chmod +x $out/bin/workspace-activate
-        ${pkgs.stdenv.shell} -n $out/bin/workspace-activate
+        ${stdenv.shell} -n $out/bin/workspace-activate
       '';
       preferLocalBuild = true;
       allowSubstitutes = false;
 
-      # fixupPhase does the "propagatedBuildInputs" thing
       phases = [ "buildPhase" "fixupPhase" ];
     };
 

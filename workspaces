@@ -26,11 +26,11 @@ open_workspace ()
     mkdir -p "$p" # side effect
     # First time opening this workspace, call 'workspace-init'
     cd "$p"
-    nix-shell -p "$pkg" --run workspace-init || wait_input_and_exit "Initialisation failed."
+    "$pkg"/bin/workspace-init || wait_input_and_exit "Initialisation failed."
   fi
 
   cd "$p"
-  nix-shell -p "$pkg" --run workspace-activate || wait_input_and_exit "Activating failed."
+  "$pkg"/bin/workspace-activate || wait_input_and_exit "Activating failed."
 }
 
 USAGE_OPEN="open <workspace name>"
