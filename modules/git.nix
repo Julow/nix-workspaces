@@ -9,7 +9,9 @@ let
 
   mapAttrsToLines = f: attrs: concatStringsSep "\n" (mapAttrsToList f attrs);
 
-  origin_url = getAttr conf.main_remote conf.remotes;
+  get_remote = role: remote:
+    let r = getAttr remote conf.remotes;
+    in if isAttrs r then getAttr role r else r;
 
   # If the 'main_remote' option correspond to a configured remote,
   # Use 'git clone' if possible, fallback to 'git init' if the
@@ -17,7 +19,9 @@ let
   # If the main branch is set to be guessed, it might only be set in the
   # 'git clone' branch and won't be set in the fallback branch.
   init_repository = if hasAttr conf.main_remote conf.remotes then ''
-    git clone --origin=${esc conf.main_remote} ${esc origin_url} .
+    git clone --origin=${esc conf.main_remote} ${
+      esc (get_remote "fetch" conf.main_remote)
+    } .
     ${if conf.main_branch == null then ''
       # Set the 'MAIN' symbolic ref to the HEAD advertised by the remote.
       update_default_branch "$(git symbolic-ref --short HEAD)"
@@ -32,9 +36,14 @@ let
     }
   '';
 
-  update_remotes = ''
-    ${mapAttrsToLines (n: u: "update_remote ${esc n} ${esc u}") conf.remotes}
-  '';
+  update_remotes =
+    let update_remote = n: u: role: "update_remote ${esc n} ${esc u} ${role}";
+    in mapAttrsToLines (n: u:
+      if isAttrs u then ''
+        ${update_remote n u.fetch "fetch"}
+        ${update_remote n u.push "push"}
+      '' else
+        update_remote n u "fetch") conf.remotes;
 
   # If the 'main_branch' option is set, make sure it is uptodate. Otherwise,
   # guess it.
@@ -50,15 +59,20 @@ let
   '';
 
 in {
-  options.git = {
+  options.git = with types; {
     remotes = mkOption {
-      type = types.attrsOf types.str;
+      type = attrsOf (either str (submodule [{
+        options = {
+          fetch = mkOption { type = str; };
+          push = mkOption { type = str; };
+        };
+      }]));
       default = { };
       description = "Git remotes.";
     };
 
     main_branch = mkOption {
-      type = types.nullOr types.str;
+      type = nullOr str;
       default = null;
       description = ''
         Defines the 'MAIN' symbolic ref.
@@ -72,12 +86,12 @@ in {
     };
 
     main_remote = mkOption {
-      type = types.str;
+      type = str;
       default = "origin";
     };
 
     gitignore = mkOption {
-      type = types.lines;
+      type = lines;
       default = "";
       description = "Local gitignore rules.";
     };

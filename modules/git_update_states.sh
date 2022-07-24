@@ -3,18 +3,23 @@
 # Read old git remotes
 declare -A old_remotes
 if [[ -d .git ]]; then # When called from the initialization script
-  while read name url rest; do
-    old_remotes+=(["$name"]="$url")
+  while read name url role; do
+    role=${role#(}
+    role=${role%)}
+    old_remotes+=(["$name-$role"]="$url")
   done < <(git remote -v)
 fi
 
 # Sync remotes
 update_remote ()
 {
-  local name="$1" url="$2"
-  local old_url=${old_remotes[$name]}
+  local name="$1" url="$2" role="$3"
+  local old_url=${old_remotes["$name-$role"]}
   if ! [[ "$url" = "$old_url" ]]; then
-    if [[ -z "$old_url" ]]; then
+    if [[ $role = push ]]; then
+      git remote set-url --push "$name" "$url"
+    elif [[ -z "$old_url" ]]; then
+      # This check is only done for fetch URLs, which should be updated first.
       git remote add "$name" "$url"
     else
       git remote set-url "$name" "$url"
