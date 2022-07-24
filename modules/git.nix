@@ -36,10 +36,11 @@ let
     ${mapAttrsToLines (n: u: "update_remote ${esc n} ${esc u}") conf.remotes}
   '';
 
-  # If the 'main_branch' option is set, make sure it is uptodate
-  update_default_branch = if conf.main_branch == null then
-    ""
-  else
+  # If the 'main_branch' option is set, make sure it is uptodate. Otherwise,
+  # guess it.
+  update_default_branch = if conf.main_branch == null then ''
+    if ! [[ -e .git/MAIN ]]; then guess_default_branch; fi
+  '' else
     "update_default_branch ${esc conf.main_branch}";
 
   update_gitignore = if config.git.gitignore == "" then
@@ -66,6 +67,7 @@ in {
         By default, the default branch is taken from the remote repository
         during the initial checkout. This can only work if the 'main_remote'
         option is set to a configured remote.
+        If it is not set at the time of activation, it is guessed.
       '';
     };
 
