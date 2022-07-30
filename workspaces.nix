@@ -118,14 +118,16 @@ let
         mv $init_scriptPath $out/bin/workspace-init
         chmod +x $out/bin/workspace-init
         ${stdenv.shell} -n $out/bin/workspace-init
+        keep_var() { for v in "$@"; do echo "export $v=''\'''${!v}'"; done; }
         {
           echo "#!${pkgs.runtimeShell}"
           echo "PATH='$PATH':\"\$PATH\""
           for v in ''${!NIX_*}; do
             if [[ $v = *_FOR_TARGET || $v = *_TARGET_TARGET_* ]]; then
-              echo "export $v=''\'''${!v}'"
+              keep_var $v
             fi
           done
+          keep_var ''${!PKG_CONFIG_PATH_*}
           cat $activation_scriptPath
         } > $out/bin/workspace-activate
         chmod +x $out/bin/workspace-activate
