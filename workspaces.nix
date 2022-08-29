@@ -43,12 +43,12 @@ let
           "Directory for per-workspace cache, relative to the home directory. Used to store history files and other unimportant things.";
       };
 
-      local_shell = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Whether to build and use a local 'shell.nix'.";
+      activation_command = mkOption {
+        type = types.str;
+        default = config.command;
+        description =
+          "Command run at the end of the activation script. The default is to run 'command'.";
       };
-
     };
 
     config = {
@@ -70,22 +70,14 @@ let
           base_module
           default_name # Base modules
           modules/git.nix
-          modules/vim.nix
+          modules/shell_nix.nix
           modules/tools.nix
+          modules/vim.nix
           modules/xdg.nix
           configuration # User configuration
         ];
       };
     in modules.config;
-
-  make_activate_command = w:
-    if w.local_shell then ''
-        if [[ -e ./shell.nix ]]
-        then exec nix-shell ./shell.nix --run ${escapeShellArg w.command}
-        else ${w.command}
-        fi
-    '' else
-      w.command;
 
   stdenv = pkgs.stdenvNoCC;
 
@@ -105,7 +97,7 @@ let
       activation_script = ''
         mkdir -p "$HOME/${w.cache_dir}"
         ${w.activation_script}
-        ${make_activate_command w}
+        ${w.activation_command}
       '';
 
       # Similar to 'pkgs.writeShellScriptBin', inlined to avoid generating many
