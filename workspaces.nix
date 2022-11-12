@@ -72,6 +72,7 @@ let
           base_module
           default_name # Base modules
           modules/git.nix
+          modules/github.nix
           modules/shell_nix.nix
           modules/tools.nix
           modules/vim.nix
