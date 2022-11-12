@@ -39,8 +39,10 @@ let
       cache_dir = mkOption {
         type = types.str;
         default = ".cache/workspaces/${config.name}";
-        description =
-          "Directory for per-workspace cache, relative to the home directory. Used to store history files and other unimportant things.";
+        description = ''
+          Directory for per-workspace cache, relative to the home directory.
+          Used to store history files and other unimportant things.
+        '';
       };
 
       activation_command = mkOption {
@@ -146,4 +148,6 @@ let
     '';
 
 in config:
+# Entry point. 'config' is a attributes set of workspaces. See 'base_module'
+# above for the low-level options and './modules' for modules.
 make_entry_script (map make_drv (mapAttrsToList make_workspace config))

@@ -18,7 +18,15 @@ let
 in {
   options = {
     vim = {
-      enable = mkEnableOption "vim";
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Enable vim. The 'command' is set to call Vim, with a custom .vimrc
+          and a session file.
+          The session file is saved automatically when Vim exists. (eg. with :qa)
+        '';
+      };
 
       bin = mkOption {
         type = types.path;

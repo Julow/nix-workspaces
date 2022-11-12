@@ -68,7 +68,13 @@ in {
         };
       }]));
       default = { };
-      description = "Git remotes.";
+      description = ''
+        Git remotes. When the workspace is activated, new remotes defined here
+        are added to the Git repository automatically and changed URL are
+        updated.
+        Adding a remote is enough to activate this module. The repository is
+        cloned on the first time the workspace is opened.
+      '';
     };
 
     main_branch = mkOption {
@@ -88,6 +94,7 @@ in {
     main_remote = mkOption {
       type = str;
       default = "origin";
+      description = "See the 'main_branch' option.";
     };
 
     gitignore = mkOption {

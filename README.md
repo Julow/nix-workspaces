@@ -1,8 +1,34 @@
 # Nix-workspaces
 
-Manage workspaces with Nix modules.
+Reproducible workspaces with Nix modules.
 
-Example of definition:
+Workspaces encapsulate an environment and can be used to start a shell or an
+editor. They are declared using the same module concept used in NixOS (it's a
+generic [function](https://github.com/Julow/nix-workspaces/blob/f926f8288cc09fd146514028f519a6c29ea3ef6f/workspaces.nix#L69) available in `nixpkgs`),
+see [examples](#Examples) below.
+
+```sh
+nix-env -if workspaces.nix
+```
+
+This makes sure that every workspaces are built and ready to be opened quickly.
+It installs a single program, `workspaces` into the environment, that allows to
+open them:
+
+```sh
+workspaces open <name>
+```
+
+The workspace description is very versatile, the [low-level options](./workspaces.nix)
+`activation_script`, `buildInputs` and `command` are equivalent to a
+`shell.nix`.
+
+Other options are defined in [modules/](./modules). For example to define Git
+remotes or to tweak your `.vimrc` for every workspace.
+
+## Examples
+
+This defines reusable base environment and a few workspaces.
 
 ```nix
 { pkgs ? import <nixpkgs> { } }:
@@ -11,21 +37,63 @@ let
   # Import this tool
   nix-workspaces = pkgs.callPackage (pkgs.fetchgit {
     url = "https://github.com/Julow/nix-workspaces";
-    rev = "afceab5420e2e62c10088a34dbf6e03cddef1585";
-    sha256 = "1102y4rfp72bgmcqyyqsympsxj8f7bfnksf1wyjv3b7vj6m32vlz";
+    rev = "c4ab335b9be04d7622bc3fa61defa552884fcff5";
+    sha256 = "1smh95p1blq2lq2l8v85lbqa5sc66j238m40y99j4xqfnigsspq6";
   }) { };
 
-  # Define base environment for the workspaces
-
-  # A minimal dev environment.
+  # A reusable dev environment.
   dev_env = {
     buildInputs = with pkgs; [ git fd ];
     vim.enable = true;
   };
 
-  # A more complex base for ocaml projects. It's defined as a module and adds an option.
+  # An other reusable environment built on top of the first one.
+  nix_env = {
+    imports = [ dev_env ];
+    buildInputs = with pkgs; [ nixfmt nix-prefetch-git ];
+  };
+
+in nix-workspaces {
+  # Define workspaces
+
+  # Easy access to scratch workspaces.
+  inherit dev_env nix_env;
+
+  nix-workspaces = {
+    imports = [ nix_env ];
+    git.remotes.origin = "https://github.com/Julow/nix-workspaces";
+  };
+
+  nixpkgs = {
+    imports = [ nix_env ];
+    git.remotes.up = "https://github.com/NixOS/nixpkgs";
+    vim.vimrc = ''
+      set path+=pkgs/top-level
+    '';
+  };
+}
+```
+
+An other example, defining a more complex `ocaml_env` environment.
+
+```nix
+{ pkgs ? import <nixpkgs> { } }:
+
+let
+  nix-workspaces = pkgs.callPackage (pkgs.fetchgit {
+    url = "https://github.com/Julow/nix-workspaces";
+    rev = "c4ab335b9be04d7622bc3fa61defa552884fcff5";
+    sha256 = "1smh95p1blq2lq2l8v85lbqa5sc66j238m40y99j4xqfnigsspq6";
+  }) { };
+
+  dev_env = {
+    buildInputs = with pkgs; [ git fd ];
+    vim.enable = true;
+  };
+
   ocaml_env = { lib, config, ... }: {
     options = {
+      # Define an option that every workspaces can set to a different value
       ocaml.ocamlformat = lib.mkOption {
         type = lib.types.package;
         default = pkgs.ocamlformat_0_17_0;
@@ -34,8 +102,8 @@ let
     imports = [ dev_env ];
     config = {
       buildInputs = with pkgs; [
-        opam ocaml
-        ocamlPackages.ocp-indent config.ocaml.ocamlformat # Tools
+        config.ocaml.ocamlformat
+        opam ocaml ocamlPackages.ocp-indent # Tools
         m4 gmp libev pkgconfig # Dependencies of some important packages
       ];
       vim.vimrc = ''
@@ -50,26 +118,8 @@ let
     };
   };
 
-  nix_env = {
-    imports = [ dev_env ];
-    buildInputs = with pkgs; [ nixfmt nix-prefetch-git ];
-  };
-
 in nix-workspaces {
-  # Define workspaces
-
-  nix-workspaces = {
-    imports = [ nix_env ];
-    git.remotes.origin = "https://github.com/Julow/nix-workspaces";
-  };
-
-  nixpkgs = {
-    imports = [ nix_env ];
-    git.remotes.up = "https://github.com/NixOS/nixpkgs";
-    vim.vimrc = ''
-      set path+=pkgs/top-level
-    '';
-  };
+  inherit ocaml_env;
 
   ocamlformat = {
     imports = [ ocaml_env ];
@@ -84,22 +134,3 @@ in nix-workspaces {
   };
 }
 ```
-
-Some low-level options are defined in [workspaces.nix](./workspaces.nix), the others are in [modules/](./modules).
-
-Build and install the workspaces:
-
-```sh
-nix-env -if workspaces.nix
-```
-
-This will fetch the dependencies of every workspaces and install a script called `workspaces`.
-
-To open a workspace:
-
-```sh
-workspaces open ocamlformat
-```
-
-This is essentially calling `nix-shell`, see [workspaces](./workspaces).
-The first time a workspace is opened, the git repository will be cloned into `$HOME/w/<workspace name>`.

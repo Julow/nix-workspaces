@@ -15,7 +15,8 @@ in {
         type = lib.types.bool;
         default = false;
         description = ''
-          Set '$XDG_CONFIG_HOME' to a path unique to each workspace.
+          Set '$XDG_CONFIG_HOME' to a path unique to each workspace. See the
+          option 'cache_dir'.
         '';
       };
 
