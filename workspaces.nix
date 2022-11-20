@@ -72,8 +72,12 @@ let
     options = {
       prefix = mkOption {
         type = types.str;
-        default = "${builtins.getEnv "HOME"}/w";
-        description = "Base path under which workspaces are located.";
+        default = "$HOME/w";
+        description = ''
+          Base path under which workspaces are located. Can contain bash
+          substitutions, which will be evaluated when the entry script is
+          called.
+        '';
       };
     };
   };
@@ -156,7 +160,7 @@ let
           '') workspaces
         }
       )
-      PREFIX=${escapeShellArg prefix}
+      PREFIX=${prefix}
       ${readFile ./workspaces.sh}
     '';
 
