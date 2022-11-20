@@ -90,7 +90,7 @@ let
       };
 
       defaults = mkOption {
-        type = types.attrs;
+        type = with types; oneOf [ attrs (functionTo attrs) ];
         # type = types.deferredModule {}; # Too recent
         default = { };
         description = ''
