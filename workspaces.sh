@@ -4,17 +4,6 @@
 
 set -e
 
-# Hold and wait for input before exiting after an error.
-# So 'xterm -e workspaces open ...' don't exit immediately on error
-wait_input_and_exit ()
-{
-  local x=$?
-  echo "$@" >&2
-  echo "Press enter to close." >&2
-  read
-  exit $x
-}
-
 open_workspace ()
 {
   local wname="$1" pkg p
@@ -25,11 +14,11 @@ open_workspace ()
     mkdir -p "$p" # side effect
     # First time opening this workspace, call 'workspace-init'
     cd "$p"
-    "$pkg"/bin/workspace-init || wait_input_and_exit "Initialisation failed."
+    "$pkg"/bin/workspace-init
   fi
 
   cd "$p"
-  "$pkg"/bin/workspace-activate || wait_input_and_exit "Activating failed."
+  "$pkg"/bin/workspace-activate
 }
 
 USAGE_OPEN="open <workspace name>"
