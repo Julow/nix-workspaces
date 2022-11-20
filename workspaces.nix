@@ -9,6 +9,15 @@ let
     }).config;
 
   base_module = { config, ... }: {
+    imports = [
+      modules/git.nix
+      modules/github.nix
+      modules/shell_nix.nix
+      modules/tools.nix
+      modules/vim.nix
+      modules/xdg.nix
+    ];
+
     options = {
       name = mkOption {
         type = types.str;
@@ -79,20 +88,25 @@ let
           called.
         '';
       };
+
+      defaults = mkOption {
+        type = types.attrs;
+        # type = types.deferredModule {}; # Too recent
+        default = { };
+        description = ''
+          Configuration added to every workspaces. Useful to configure
+          'activation_command' or to add basic tools to 'buildInputs'.
+        '';
+      };
     };
   };
 
-  make_workspace = name: configuration:
+  make_workspace = { defaults, ... }: name: configuration:
     let default_name = { name = mkDefault name; };
     in eval_modules [
       base_module
       default_name # Base modules
-      modules/git.nix
-      modules/github.nix
-      modules/shell_nix.nix
-      modules/tools.nix
-      modules/vim.nix
-      modules/xdg.nix
+      defaults # From global configuration
       configuration # User configuration
     ];
 
@@ -149,7 +163,7 @@ let
     };
 
   # Hard code workspace derivation paths into the script
-  make_entry_script = { prefix }:
+  make_entry_script = { prefix, ... }:
     workspaces:
     pkgs.writeShellScriptBin "workspaces" ''
       declare -A workspaces
@@ -168,12 +182,13 @@ in config:
 # Entry point. 'config' is a attributes set of workspaces. See 'base_module'
 # above for the low-level options and './modules' for modules.
 let
-  workspaces_def = builtins.removeAttrs config [ "_default" ];
-  workspaces = mapAttrsToList make_workspace workspaces_def;
-  workspaces_drv = map make_drv workspaces;
-
   global_config =
     eval_modules [ global_configuration (config._default or { }) ];
+
+  workspaces_def = builtins.removeAttrs config [ "_default" ];
+  workspaces =
+    mapAttrsToList (make_workspace global_config) workspaces_def;
+  workspaces_drv = map make_drv workspaces;
 
   entry_script = make_entry_script global_config workspaces_drv;
 
