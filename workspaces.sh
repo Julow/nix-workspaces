@@ -1,9 +1,8 @@
 # this is not a standalone shell script.
 : ${workspaces[@]:?This script is not intended to be executed}
+: ${PREFIX:?}
 
 set -e
-
-PREFIX=$HOME/w
 
 # Hold and wait for input before exiting after an error.
 # So 'xterm -e workspaces open ...' don't exit immediately on error

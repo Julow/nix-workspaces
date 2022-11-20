@@ -3,6 +3,11 @@
 with pkgs.lib;
 
 let
+  eval_modules = modules:
+    (evalModules {
+      modules = [{ _module.args = { inherit pkgs; }; }] ++ modules;
+    }).config;
+
   base_module = { config, ... }: {
     options = {
       name = mkOption {
@@ -62,25 +67,30 @@ let
 
   };
 
-  make_workspace = name: configuration:
-    let
-      default_name = { name = mkDefault name; };
-
-      modules = evalModules {
-        modules = [
-          { _module.args = { inherit pkgs; }; }
-          base_module
-          default_name # Base modules
-          modules/git.nix
-          modules/github.nix
-          modules/shell_nix.nix
-          modules/tools.nix
-          modules/vim.nix
-          modules/xdg.nix
-          configuration # User configuration
-        ];
+  # Options for the '_default' attribute.
+  global_configuration = { config, ... }: {
+    options = {
+      prefix = mkOption {
+        type = types.str;
+        default = "${builtins.getEnv "HOME"}/w";
+        description = "Base path under which workspaces are located.";
       };
-    in modules.config;
+    };
+  };
+
+  make_workspace = name: configuration:
+    let default_name = { name = mkDefault name; };
+    in eval_modules [
+      base_module
+      default_name # Base modules
+      modules/git.nix
+      modules/github.nix
+      modules/shell_nix.nix
+      modules/tools.nix
+      modules/vim.nix
+      modules/xdg.nix
+      configuration # User configuration
+    ];
 
   stdenv = pkgs.stdenvNoCC;
 
@@ -135,7 +145,8 @@ let
     };
 
   # Hard code workspace derivation paths into the script
-  make_entry_script = workspaces:
+  make_entry_script = { prefix }:
+    workspaces:
     pkgs.writeShellScriptBin "workspaces" ''
       declare -A workspaces
       workspaces=(
@@ -145,10 +156,21 @@ let
           '') workspaces
         }
       )
-      ${readFile ./workspaces}
+      PREFIX=${escapeShellArg prefix}
+      ${readFile ./workspaces.sh}
     '';
 
 in config:
 # Entry point. 'config' is a attributes set of workspaces. See 'base_module'
 # above for the low-level options and './modules' for modules.
-make_entry_script (map make_drv (mapAttrsToList make_workspace config))
+let
+  workspaces_def = builtins.removeAttrs config [ "_default" ];
+  workspaces = mapAttrsToList make_workspace workspaces_def;
+  workspaces_drv = map make_drv workspaces;
+
+  global_config =
+    eval_modules [ global_configuration (config._default or { }) ];
+
+  entry_script = make_entry_script global_config workspaces_drv;
+
+in entry_script
