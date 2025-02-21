@@ -13,44 +13,6 @@ let
     let r = getAttr remote conf.remotes;
     in if isAttrs r then getAttr role r else r;
 
-  # If the 'main_remote' option correspond to a configured remote,
-  # Use 'git clone' if possible, fallback to 'git init' if the
-  # 'main_remote' option doesn't correspond to a configured remote.
-  # If the main branch is set to be guessed, it might only be set in the
-  # 'git clone' branch and won't be set in the fallback branch.
-  init_repository = if hasAttr conf.main_remote conf.remotes then ''
-    git clone --origin=${esc conf.main_remote} ${
-      esc (get_remote "fetch" conf.main_remote)
-    } .
-    ${if conf.main_branch == null then ''
-      # Set the 'MAIN' symbolic ref to the HEAD advertised by the remote.
-      MAIN=$(git symbolic-ref --short HEAD)
-      git symbolic-ref MAIN "refs/heads/$MAIN"
-    '' else
-      ""}
-  '' else ''
-    git init ${
-      if conf.main_branch != null then
-        "--initial-branch=${esc conf.main_branch}"
-      else
-        ""
-    }
-  '';
-
-  # Remotes used to be set with the 'git remote' command instead of through the
-  # included config file. This removes remotes that have been set this way.
-  remove_legacy_remotes = mapAttrsToLines (name: url:
-    ''
-      remove_legacy_remote ${esc name} ${
-        esc (if isAttrs url then url.fetch else url)
-      } "fetch"'') conf.remotes;
-
-  # If the 'main_branch' option is not set, guess it.
-  guess_default_branch = if conf.main_branch == null then ''
-    if ! [[ -e .git/MAIN ]]; then guess_default_branch; fi
-  '' else
-    "";
-
   gitignore_config = if config.git.gitignore == "" then
     ""
   else ''
@@ -121,26 +83,74 @@ in {
   config = mkIf (conf.remotes != { }) {
     buildInputs = with pkgs; [ git ];
 
-    # 'init_repository' might or might not fetch the main remote. In any case,
-    # fetch again to be sure to have all the remotes and tags.
+    # If the 'main_remote' option correspond to a configured remote,
+    # Use 'git clone' if possible, fallback to 'git init' if the
+    # 'main_remote' option doesn't correspond to a configured remote.
+    # If the main branch is set to be guessed, it might only be set in the
+    # 'git clone' branch and won't be set in the fallback branch.
     init_script = ''
-      ${init_repository}
+      ${if hasAttr conf.main_remote conf.remotes then ''
+        git clone --origin=${esc conf.main_remote} ${
+          esc (get_remote "fetch" conf.main_remote)
+        } .
+        ${if conf.main_branch == null then ''
+          # Set the 'MAIN' symbolic ref to the HEAD advertised by the remote.
+          MAIN=$(git symbolic-ref --short HEAD)
+          git symbolic-ref MAIN "refs/heads/$MAIN"
+        '' else
+          ""}
+      '' else ''
+        git init ${
+          if conf.main_branch != null then
+            "--initial-branch=${esc conf.main_branch}"
+          else
+            ""
+        }
+      ''}
       git fetch --all --tags --update-head-ok --no-show-forced-updates --force
     '';
 
     activation_script = ''
-      . ${./git_update_states.sh}
-      ${remove_legacy_remotes}
-      ${guess_default_branch}
+      ${
+      # Remove remotes and ignore rules previously set using 'git remote' and
+      # '.git/info/exclude' as they take precedence over the new method using an
+      # included config file.
+      ""}
+      # Migrate workspaces using an old format
+      if ! git config get --local --value="^/nix/store/.*-workspace.git$" include.path &>/dev/null; then
+        # Remove all remotes
+        while read name; do
+          git remote remove "$name"
+        done < <(git remote)
+        rm -f .git/info/exclude # Now set through config
+      fi
+
       git config set --local --all --value="^/nix/store/.*-workspace.git$" "include.path" ${
         builtins.toFile "workspace.git" local_config
       }
-      ${if conf.main_branch == null then
-        ""
-      else ''
+
+      ${
+      # If the 'main_branch' option is set, the 'MAIN' symbolic ref is updated to
+      # point to the specified branch.
+      # If it is not set, the branch to use is guessed from a list of probable main
+      # branches.
+      if conf.main_branch == null then ''
+        guess_default_branch ()
+        {
+          local default=$(git config init.defaultBranch)
+          for guess in "$default" main master trunk; do
+            if [[ -e .git/refs/heads/$guess ]]; then
+              git symbolic-ref MAIN "refs/heads/$guess"
+              return
+            fi
+          done
+        }
+
+        if ! [[ -e .git/MAIN ]]; then guess_default_branch; fi
+      '' else ''
         echo ${esc "refs/heads/${conf.main_branch}"} > .git/MAIN
       ''}
-      remove_legacy_exclude_file
     '';
+
   };
 }
