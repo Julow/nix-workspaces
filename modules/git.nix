@@ -24,7 +24,8 @@ let
     } .
     ${if conf.main_branch == null then ''
       # Set the 'MAIN' symbolic ref to the HEAD advertised by the remote.
-      update_default_branch "$(git symbolic-ref --short HEAD)"
+      MAIN=$(git symbolic-ref --short HEAD)
+      git symbolic-ref MAIN "refs/heads/$MAIN"
     '' else
       ""}
   '' else ''
@@ -44,12 +45,11 @@ let
         esc (if isAttrs url then url.fetch else url)
       } "fetch"'') conf.remotes;
 
-  # If the 'main_branch' option is not set, make sure it is uptodate. Otherwise,
-  # guess it.
-  update_default_branch = if conf.main_branch == null then ''
+  # If the 'main_branch' option is not set, guess it.
+  guess_default_branch = if conf.main_branch == null then ''
     if ! [[ -e .git/MAIN ]]; then guess_default_branch; fi
   '' else
-    "update_default_branch ${esc conf.main_branch}";
+    "";
 
   gitignore_config = if config.git.gitignore == "" then
     ""
@@ -124,7 +124,6 @@ in {
     # 'init_repository' might or might not fetch the main remote. In any case,
     # fetch again to be sure to have all the remotes and tags.
     init_script = ''
-      . ${./git_update_states.sh}
       ${init_repository}
       git fetch --all --tags --update-head-ok --no-show-forced-updates --force
     '';
@@ -132,10 +131,15 @@ in {
     activation_script = ''
       . ${./git_update_states.sh}
       ${remove_legacy_remotes}
-      ${update_default_branch}
+      ${guess_default_branch}
       git config set --local --all --value="^/nix/store/.*-workspace.git$" "include.path" ${
         builtins.toFile "workspace.git" local_config
       }
+      ${if conf.main_branch == null then
+        ""
+      else ''
+        echo ${esc "refs/heads/${conf.main_branch}"} > .git/MAIN
+      ''}
       remove_legacy_exclude_file
     '';
   };
