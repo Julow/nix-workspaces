@@ -1,5 +1,25 @@
 # Not a standalone shell script
 
+# Read old git remotes
+declare -A old_remotes
+if [[ -d .git ]]; then # When called from the initialization script
+  while read name url role; do
+    role=${role#(}
+    role=${role%)}
+    old_remotes+=(["$name-$role"]="$url")
+  done < <(git remote -v)
+fi
+
+# Remove remotes set using the old method
+remove_legacy_remote ()
+{
+  local name="$1" url="$2" role="$3"
+  local old_url=${old_remotes["$name-$role"]}
+  if [[ "$url" = "$old_url" ]]; then
+    git remote remove "$name"
+  fi
+}
+
 # Sync the MAIN symbolic ref
 # Also update the 'init.defaultBranch' config in case it's used by some scripts
 update_default_branch ()

@@ -36,6 +36,14 @@ let
     }
   '';
 
+  # Remotes used to be set with the 'git remote' command instead of through the
+  # included config file. This removes remotes that have been set this way.
+  remove_legacy_remotes = mapAttrsToLines (name: url:
+    ''
+      remove_legacy_remote ${esc name} ${
+        esc (if isAttrs url then url.fetch else url)
+      } "fetch"'') conf.remotes;
+
   # If the 'main_branch' option is not set, make sure it is uptodate. Otherwise,
   # guess it.
   update_default_branch = if conf.main_branch == null then ''
@@ -57,8 +65,7 @@ let
       pushurl = ${url.push}
     '' else ''
       url = ${url}
-    ''}
-  '') conf.remotes;
+    ''}'') conf.remotes;
 
   local_config = ''
     ${gitignore_config}
@@ -124,6 +131,7 @@ in {
 
     activation_script = ''
       . ${./git_update_states.sh}
+      ${remove_legacy_remotes}
       ${update_default_branch}
       git config set --local --all --value="^/nix/store/.*-workspace.git$" "include.path" ${
         builtins.toFile "workspace.git" local_config
