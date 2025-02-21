@@ -36,26 +36,33 @@ let
     }
   '';
 
-  update_remotes =
-    let update_remote = n: u: role: "update_remote ${esc n} ${esc u} ${role}";
-    in mapAttrsToLines (n: u:
-      if isAttrs u then ''
-        ${update_remote n u.fetch "fetch"}
-        ${update_remote n u.push "push"}
-      '' else
-        update_remote n u "fetch") conf.remotes;
-
-  # If the 'main_branch' option is set, make sure it is uptodate. Otherwise,
+  # If the 'main_branch' option is not set, make sure it is uptodate. Otherwise,
   # guess it.
   update_default_branch = if conf.main_branch == null then ''
     if ! [[ -e .git/MAIN ]]; then guess_default_branch; fi
   '' else
     "update_default_branch ${esc conf.main_branch}";
 
-  update_gitignore = if config.git.gitignore == "" then
+  gitignore_config = if config.git.gitignore == "" then
     ""
   else ''
-    ln -sf "${builtins.toFile "gitignore" conf.gitignore}" .git/info/exclude
+    [core]
+    excludesFile = ${builtins.toFile "gitignore" conf.gitignore}
+  '';
+
+  remotes_config = mapAttrsToLines (name: url: ''
+    [remote "${name}"]
+    ${if isAttrs url then ''
+      url = ${url.fetch}
+      pushurl = ${url.push}
+    '' else ''
+      url = ${url}
+    ''}
+  '') conf.remotes;
+
+  local_config = ''
+    ${gitignore_config}
+    ${remotes_config}
   '';
 
 in {
@@ -112,15 +119,16 @@ in {
     init_script = ''
       . ${./git_update_states.sh}
       ${init_repository}
-      ${update_remotes}
       git fetch --all --tags --update-head-ok --no-show-forced-updates --force
     '';
 
     activation_script = ''
       . ${./git_update_states.sh}
-      ${update_remotes}
       ${update_default_branch}
-      ${update_gitignore}
+      git config set --local --all --value="^/nix/store/.*-workspace.git$" "include.path" ${
+        builtins.toFile "workspace.git" local_config
+      }
+      remove_legacy_exclude_file
     '';
   };
 }
