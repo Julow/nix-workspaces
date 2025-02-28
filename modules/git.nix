@@ -13,28 +13,22 @@ let
     let r = getAttr remote conf.remotes;
     in if isAttrs r then getAttr role r else r;
 
-  gitignore_config = if config.git.gitignore == "" then
-    ""
-  else ''
-    [core]
-    excludesFile = ${builtins.toFile "gitignore" conf.gitignore}
-  '';
+  # Generate the [remote "name"] section of a remote.
+  mk_remote_conf = name: url: {
+    "remote \"${name}\"" = {
+      url = if isAttrs url then url.fetch else url;
+      pushurl = mkIf (isAttrs url) url.push;
+      fetch = "+refs/heads/*:refs/remotes/${name}/*";
+    };
+  };
 
-  remotes_config = mapAttrsToLines (name: url: ''
-    [remote "${name}"]
-    ${if isAttrs url then ''
-      url = ${url.fetch}
-      pushurl = ${url.push}
-    '' else ''
-      url = ${url}
-    ''}
-    fetch = +refs/heads/*:refs/remotes/${name}/*
-    '') conf.remotes;
-
-  local_config = ''
-    ${gitignore_config}
-    ${remotes_config}
-  '';
+  # Write a git config into a file. Argument is a
+  #   attributes of attributes of strings
+  gen_git_config = filename: conf:
+    builtins.toFile filename (mapAttrsToLines (section: opts: ''
+      [${section}]
+      ${mapAttrsToLines (key: val: "  ${key} = ${val}") opts}
+    '') conf);
 
 in {
   options.git = with types; {
@@ -59,9 +53,7 @@ in {
       type = nullOr str;
       default = null;
       description = ''
-        Defines the 'MAIN' symbolic ref.
-        Also used to set the 'init.defaultBranch' config and for the initial
-        checkout.
+        Defines the 'MAIN' symbolic ref. Also used for the initial checkout.
         By default, the default branch is taken from the remote repository
         during the initial checkout. This can only work if the 'main_remote'
         option is set to a configured remote.
@@ -80,10 +72,25 @@ in {
       default = "";
       description = "Local gitignore rules.";
     };
+
+    config = mkOption {
+      type = attrsOf (attrsOf str);
+      description = ''
+        Local git config options. The toplevel attributes represents the
+        sections and the nested attributes are the config options.
+        '"remotes.*".url' and similar are set by the 'remotes' option.
+      '';
+    };
   };
 
   config = mkIf (conf.remotes != { }) {
     buildInputs = with pkgs; [ git ];
+
+    git.config = {
+      core.excludesFile = mkIf (conf.gitignore != "")
+        (builtins.toFile "gitignore" conf.gitignore);
+
+    } // concatMapAttrs mk_remote_conf conf.remotes;
 
     # If the 'main_remote' option correspond to a configured remote,
     # Use 'git clone' if possible, fallback to 'git init' if the
@@ -128,7 +135,7 @@ in {
       fi
 
       git config set --local --all --value="^/nix/store/.*-workspace.git$" "include.path" ${
-        builtins.toFile "workspace.git" local_config
+        gen_git_config "workspace.git" conf.config
       }
 
       ${
