@@ -174,6 +174,10 @@ let
           '') workspaces
         }
       )
+      # Sorted list of workspaces for use in the 'list' and 'status' commands.
+      workspaces_names=(
+        ${concatMapStringsSep " " (drv: ''"${drv.name}"'') workspaces}
+      )
       PREFIX=${prefix}
       ${readFile ./workspaces.sh}
     '';

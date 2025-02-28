@@ -1,6 +1,6 @@
 # this is not a standalone shell script.
 : ${workspaces[@]:?This script is not intended to be executed}
-: ${PREFIX:?}
+: ${PREFIX:?} ${workspaces_names:?}
 
 set -e
 
@@ -70,13 +70,13 @@ case "$cmd" in
     ;;
 
   "list")
-    for wname in "${!workspaces[@]}"; do
+    for wname in "${workspaces_names[@]}"; do
       echo "$wname"
     done
     ;;
 
   "status")
-    for wname in "${!workspaces[@]}"; do
+    for wname in "${workspaces_names[@]}"; do
       workspace_status "$wname"
     done
     ;;
