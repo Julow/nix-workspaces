@@ -27,7 +27,9 @@ let
       pushurl = ${url.push}
     '' else ''
       url = ${url}
-    ''}'') conf.remotes;
+    ''}
+    fetch = +refs/heads/*:refs/remotes/${name}/*
+    '') conf.remotes;
 
   local_config = ''
     ${gitignore_config}
