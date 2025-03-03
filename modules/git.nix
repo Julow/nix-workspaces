@@ -157,7 +157,7 @@ in {
 
         if ! [[ -e .git/MAIN ]]; then guess_default_branch; fi
       '' else ''
-        echo ${esc "refs/heads/${conf.main_branch}"} > .git/MAIN
+        echo "ref: "${esc "refs/heads/${conf.main_branch}"} > .git/MAIN
       ''}
     '';
 
