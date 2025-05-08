@@ -33,8 +33,9 @@ in {
     activation_command = ''
       if [[ -e ./shell.nix ]]
       then
-        nix-build ./shell.nix -A inputDerivation ${nixpkgs_incl} \
-          -o "$HOME/${inputs_root_rel}"
+        set -e
+        nix build ${nixpkgs_incl} -o "$HOME/${inputs_root_rel}" \
+          -f ./shell.nix inputDerivation
         exec nix-shell ./shell.nix ${nixpkgs_incl} --run ${
           escapeShellArg config.command
         }
