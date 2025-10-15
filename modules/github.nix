@@ -38,7 +38,7 @@ let
 in {
   options = with lib; {
     github.origin = mkOption {
-      type = types.nullOr types.string;
+      type = types.nullOr types.str;
       default = null;
       description = ''
         Set 'git.remotes.origin' to point to the Github repository
@@ -47,7 +47,7 @@ in {
     };
 
     github.up = mkOption {
-      type = types.nullOr types.string;
+      type = types.nullOr types.str;
       default = null;
       description = ''
         Same as the 'origin' option but for a remote named 'up'.
@@ -55,7 +55,7 @@ in {
     };
 
     github.extra_remotes = mkOption {
-      type = types.listOf types.string;
+      type = types.listOf types.str;
       default = [ ];
       description = ''
         Extra remotes, named after the user hosting the repository. Useful for forks, for example.
@@ -63,7 +63,7 @@ in {
     };
 
     github.ssh_prefix = mkOption {
-      type = types.nullOr types.string;
+      type = types.nullOr types.str;
       default = null;
       description = ''
         Prefix to use for SSH urls, which are used for 'push' url. If this is
