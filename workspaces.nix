@@ -59,6 +59,28 @@ let
         '';
       };
 
+      nix_builder_vars = mkOption {
+        type = types.listOf types.str;
+        default = [
+          "PKG_CONFIG_PATH_*" "NIX_*_FOR_TARGET" "NIX_*_TARGET_TARGET_*"
+        ];
+        description = ''
+          Variables from the builder's environment to persist in the
+          workspace. The builder's environment is impacted by 'buildInputs'.
+          Asterisks can be used to match many variables.
+        '';
+      };
+
+      nix_builder_vars_path = mkOption {
+        type = types.listOf types.str;
+        default = [ "PATH" ];
+        description = ''
+          Like 'nix_builder_vars' but for variables containing paths separated
+          by ':'. The new paths are concatenated at the front of the content.
+          Asterisks are not supported.
+        '';
+      };
+
       activation_command = mkOption {
         type = types.str;
         default = config.command;
@@ -112,6 +134,22 @@ let
 
   stdenv = pkgs.stdenvNoCC;
 
+  # Snippet of bash script that persist env variables
+  persist_builder_vars =
+    export: var:
+    let
+      # The ${!...} syntax only supports one asterisk, at the end. The rest of
+      # the pattern is checked using [[ = ]].
+      vs = strings.splitString "*" var;
+      v0 = elemAt vs 0;
+    in ''
+      for v in ''${!${v0}*}; do
+        if [[ $v = ${var} ]]; then
+          echo "export $v=${export}"
+        fi
+      done
+    '';
+
   # Generate the 'workspace-init' and 'workspace-activate' script for the
   # workspace.
   make_drv = w:
@@ -141,16 +179,14 @@ let
         mv $init_scriptPath $out/bin/workspace-init
         chmod +x $out/bin/workspace-init
         ${stdenv.shell} -n $out/bin/workspace-init
-        keep_var() { for v in "$@"; do echo "export $v=''\'''${!v}'"; done; }
         {
           echo "#!${pkgs.runtimeShell}"
-          echo "PATH='$PATH':\"\$PATH\""
-          for v in ''${!NIX_*}; do
-            if [[ $v = *_FOR_TARGET || $v = *_TARGET_TARGET_* ]]; then
-              keep_var $v
-            fi
-          done
-          keep_var ''${!PKG_CONFIG_PATH_*}
+          ${concatMapStrings
+            (persist_builder_vars "'\${!v}'")
+            w.nix_builder_vars}
+          ${concatMapStrings
+            (persist_builder_vars "'\${!v}':\"\\$$v\"")
+            w.nix_builder_vars_path}
           cat $activation_scriptPath
         } > $out/bin/workspace-activate
         chmod +x $out/bin/workspace-activate
