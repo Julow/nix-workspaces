@@ -73,7 +73,7 @@ let
 
       nix_builder_vars_path = mkOption {
         type = types.listOf types.str;
-        default = [ "PATH" ];
+        default = [ "PATH" "PYTHONPATH" ];
         description = ''
           Like 'nix_builder_vars' but for variables containing paths separated
           by ':'. The new paths are concatenated at the front of the content.
