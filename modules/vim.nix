@@ -1,4 +1,9 @@
-{ pkgs, config, lib, ... }:
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
 
 with lib;
 
@@ -15,7 +20,16 @@ let
 
   vimrc_file = builtins.toFile "vimrc" config.vim.vimrc;
 
-in {
+  cli_args_escaped = lib.concatStringsSep " " [
+    "-i"
+    viminfo_path_esc
+    "-S"
+    session_path_esc
+    (lib.escapeShellArgs config.vim.cli_args)
+  ];
+
+in
+{
   options = {
     vim = {
       enable = mkOption {
@@ -31,8 +45,7 @@ in {
       bin = mkOption {
         type = types.path;
         default = impure_vim;
-        description =
-          "Vim binary to use. The default is to lookup vim from the PATH.";
+        description = "Vim binary to use. The default is to lookup vim from the PATH.";
       };
 
       vimrc = mkOption {
@@ -41,12 +54,22 @@ in {
         description = "Local vimrc.";
       };
 
+      cli_args = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "Command-line argument passed when starting Vim.";
+      };
     };
   };
 
   config = mkIf (config.vim.enable != "") {
+    vim.cli_args = [
+      "-S"
+      vimrc_file
+    ];
+
     command = ''
-      exec ${config.vim.bin} -i ${viminfo_path_esc} -S ${vimrc_file} -S ${session_path_esc}
+      exec ${config.vim.bin} ${cli_args_escaped}
     '';
 
     activation_script = ''
