@@ -20,16 +20,44 @@ let
 
   vimrc_file = builtins.toFile "vimrc" config.vim.vimrc;
 
-  cli_args_escaped = lib.concatStringsSep " " [
-    "-i"
-    viminfo_path_esc
-    "-S"
-    session_path_esc
-    (lib.escapeShellArgs config.vim.cli_args)
-  ];
+  # Module implementing sessions
+  session_module = {
+    options.vim.session = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Save the session automatically when Vim exists (eg. with :qa) and
+        restore it when the workspace is opened again.
+      '';
+    };
+
+    config = mkIf config.vim.session {
+      vim.cli_args_unescaped = [
+        "-S"
+        session_path_esc
+      ];
+
+      activation_script = ''
+        session_path=${session_path_esc}
+        if ! [[ -e $session_path ]]; then
+          echo "let v:this_session = \"$session_path\"" > "$session_path"
+        fi
+
+      '';
+
+      vim.vimrc = ''
+        " Remove some session options to make it work better with automatic sessions
+        set sessionoptions=blank,help,tabpages,winsize,terminal
+
+        autocmd VimLeave * execute "mksession!" v:this_session
+      '';
+    };
+  };
 
 in
 {
+  imports = [ session_module ];
+
   options = {
     vim = {
       enable = mkOption {
@@ -38,7 +66,6 @@ in
         description = ''
           Enable vim. The 'command' is set to call Vim, with a custom .vimrc
           and a session file.
-          The session file is saved automatically when Vim exists. (eg. with :qa)
         '';
       };
 
@@ -59,6 +86,12 @@ in
         default = [ ];
         description = "Command-line argument passed when starting Vim.";
       };
+
+      cli_args_unescaped = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "Like 'vim.cli_args' but the argument are not escaped and can ues Bash substitutions.";
+      };
     };
   };
 
@@ -68,23 +101,14 @@ in
       vimrc_file
     ];
 
+    vim.cli_args_unescaped = [
+      "-i"
+      viminfo_path_esc
+      (escapeShellArgs config.vim.cli_args)
+    ];
+
     command = ''
-      exec ${config.vim.bin} ${cli_args_escaped}
-    '';
-
-    activation_script = ''
-      session_path=${session_path_esc}
-      if ! [[ -e $session_path ]]; then
-        echo "let v:this_session = \"$session_path\"" > "$session_path"
-      fi
-
-    '';
-
-    vim.vimrc = ''
-      " Remove some session options to make it work better with automatic sessions
-      set sessionoptions=blank,help,tabpages,winsize,terminal
-
-      autocmd VimLeave * execute "mksession!" v:this_session
+      exec ${config.vim.bin} ${concatStringsSep " " config.vim.cli_args_unescaped}
     '';
   };
 }
