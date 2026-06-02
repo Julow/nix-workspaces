@@ -38,6 +38,16 @@ let
         description = "Script run when entering a workspace.";
       };
 
+      env_script = mkOption {
+        type = types.lines;
+        default = "";
+        description = ''
+          Shell script that sets environment variables. Included in
+          'activation_script' but can be used to enter an environment without
+          running the full activation script and the command.
+        '';
+      };
+
       command = mkOption {
         type = types.str;
         default = "${pkgs.bashInteractive}/bin/bash";
@@ -91,6 +101,7 @@ let
 
     config = {
       activation_script = ''
+        mkdir -p "$HOME/${config.cache_dir}"
         export WORKSPACE=${config.name}
         export HISTFILE=$HOME/${config.cache_dir}/bash_history
       '';
@@ -150,24 +161,18 @@ let
       done
     '';
 
-  # Generate the 'workspace-init' and 'workspace-activate' script for the
-  # workspace.
+  # Generate the 'workspace-init', 'workspace-activate' and 'workspace-env'
+  # script for the workspace.
   make_drv = w:
     stdenv.mkDerivation {
       name = strings.sanitizeDerivationName w.name;
 
-      inherit (w) buildInputs;
+      inherit (w)
+      buildInputs init_script activation_script env_script activation_command;
 
-      passAsFile = [ "init_script" "activation_script" ];
-      init_script = ''
-        #!${pkgs.runtimeShell}
-        ${w.init_script}
-      '';
-      activation_script = ''
-        mkdir -p "$HOME/${w.cache_dir}"
-        ${w.activation_script}
-        ${w.activation_command}
-      '';
+      passAsFile = [
+        "init_script" "activation_script" "env_script" "activation_command"
+      ];
 
       # Similar to 'pkgs.writeShellScriptBin', inlined to avoid generating many
       # store paths.
@@ -176,21 +181,25 @@ let
       # variables used by pkg-config, gcc and ld wrappers.
       buildPhase = ''
         mkdir -p $out/bin
-        mv $init_scriptPath $out/bin/workspace-init
-        chmod +x $out/bin/workspace-init
-        ${stdenv.shell} -n $out/bin/workspace-init
         {
           echo "#!${pkgs.runtimeShell}"
+          cat $init_scriptPath
+        } > $out/bin/workspace-init
+        {
           ${concatMapStrings
             (persist_builder_vars "'\${!v}'")
             w.nix_builder_vars}
           ${concatMapStrings
             (persist_builder_vars "'\${!v}':\"\\$$v\"")
             w.nix_builder_vars_path}
-          cat $activation_scriptPath
+          cat $env_scriptPath
+        } > $out/bin/workspace-env
+        {
+          echo "#!${pkgs.runtimeShell}"
+          cat $out/bin/workspace-env $activation_scriptPath $activation_commandPath
         } > $out/bin/workspace-activate
-        chmod +x $out/bin/workspace-activate
-        ${stdenv.shell} -n $out/bin/workspace-activate
+        chmod +x $out/bin/workspace-{init,activate}
+        ${stdenv.shell} -n $out/bin/workspace-*
       '';
       preferLocalBuild = true;
       allowSubstitutes = false;
