@@ -98,11 +98,11 @@ let
           "Command run at the end of the activation script. The default is to run 'command'.";
       };
 
-      drv = mkOption {
+      env_script_final = mkOption {
         type = types.package;
-        default = make_drv config;
-        description =
-          "Final derivation for the workspace. Contains the 'workspace-init', 'workspace-activate' and 'workspace-env' scripts.";
+        readOnly = true;
+        default = make_env_script config;
+        description = "Final content for the 'workspace-env' scripts.";
       };
     };
 
@@ -168,6 +168,22 @@ let
       done
     '';
 
+  make_env_script = w:
+    pkgs.runCommand "${w.name}-env" {
+      inherit (w) env_script;
+      passAsFile = [ "env_script" ];
+    } ''
+      {
+        ${concatMapStrings
+          (persist_builder_vars "'\${!v}'")
+          w.nix_builder_vars}
+        ${concatMapStrings
+          (persist_builder_vars "'\${!v}':\"\\$$v\"")
+          w.nix_builder_vars_path}
+        cat $env_scriptPath
+      } > "$out"
+    '';
+
   # Generate the 'workspace-init', 'workspace-activate' and 'workspace-env'
   # script for the workspace.
   make_drv = w:
@@ -175,11 +191,9 @@ let
       name = strings.sanitizeDerivationName w.name;
 
       inherit (w)
-      buildInputs init_script activation_script env_script activation_command;
+      buildInputs init_script activation_script activation_command;
 
-      passAsFile = [
-        "init_script" "activation_script" "env_script" "activation_command"
-      ];
+      passAsFile = [ "init_script" "activation_script" "activation_command" ];
 
       # Similar to 'pkgs.writeShellScriptBin', inlined to avoid generating many
       # store paths.
@@ -192,18 +206,10 @@ let
           echo "#!${pkgs.runtimeShell}"
           cat $init_scriptPath
         } > $out/bin/workspace-init
-        {
-          ${concatMapStrings
-            (persist_builder_vars "'\${!v}'")
-            w.nix_builder_vars}
-          ${concatMapStrings
-            (persist_builder_vars "'\${!v}':\"\\$$v\"")
-            w.nix_builder_vars_path}
-          cat $env_scriptPath
-        } > $out/bin/workspace-env
+        cp ${w.env_script_final} $out/bin/workspace-env
         {
           echo "#!${pkgs.runtimeShell}"
-          cat $out/bin/workspace-env $activation_scriptPath $activation_commandPath
+          cat ${w.env_script_final} $activation_scriptPath $activation_commandPath
         } > $out/bin/workspace-activate
         chmod +x $out/bin/workspace-{init,activate}
         ${stdenv.shell} -n $out/bin/workspace-*
@@ -215,12 +221,11 @@ let
     };
 
   # Hard code workspace derivation paths into the script
-  make_entry_script = { prefix, ... }:
-    workspaces:
+  make_entry_script = { prefix, ... }: workspaces:
     pkgs.writeShellScriptBin "workspaces" ''
       declare -A workspaces
       workspaces=(
-        ${concatMapStringsSep "\n  " (w: ''["${w.name}"]="${w.drv}"'') workspaces}
+        ${concatMapStringsSep "\n  " (w: ''["${w.name}"]="${make_drv w}"'') workspaces}
       )
       # Sorted list of workspaces for use in the 'list' and 'status' commands.
       workspaces_names=(
