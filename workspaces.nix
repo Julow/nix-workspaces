@@ -170,7 +170,7 @@ let
 
   make_env_script = w:
     pkgs.runCommand "${w.name}-env" {
-      inherit (w) env_script;
+      inherit (w) env_script buildInputs;
       passAsFile = [ "env_script" ];
     } ''
       {
@@ -190,8 +190,7 @@ let
     stdenv.mkDerivation {
       name = strings.sanitizeDerivationName w.name;
 
-      inherit (w)
-      buildInputs init_script activation_script activation_command;
+      inherit (w) init_script activation_script activation_command;
 
       passAsFile = [ "init_script" "activation_script" "activation_command" ];
 
