@@ -59,6 +59,7 @@ workspace_status ()
 }
 
 USAGE_OPEN="open <workspace name>"
+USAGE_DRV="drv <workspace name>"
 
 cmd=$1
 shift
@@ -81,6 +82,11 @@ case "$cmd" in
     done
     ;;
 
+  "drv")
+    wname=${1:?Usage: workspaces $USAGE_OPEN}
+    echo "${workspaces[$wname]:?Workspace $wname not found.}"
+    ;;
+
   *)
     cat <<EOF >&2
 Usage: workspaces { open | list }
@@ -94,6 +100,12 @@ Usage: workspaces { open | list }
 
   status
     Show status for each workspaces, including Git status.
+
+  $USAGE_DRV
+    Output the path to the workspace's derivation. This contains the init, env
+    and activation script.
+    The workspace-env script can be use to enter a sandbox without running the
+    stateful part of 'activation_script' or opening the editor.
 EOF
     ;;
 esac
