@@ -97,6 +97,13 @@ let
         description =
           "Command run at the end of the activation script. The default is to run 'command'.";
       };
+
+      drv = mkOption {
+        type = types.package;
+        default = make_drv config;
+        description =
+          "Final derivation for the workspace. Contains the 'workspace-init', 'workspace-activate' and 'workspace-env' scripts.";
+      };
     };
 
     config = {
@@ -213,15 +220,11 @@ let
     pkgs.writeShellScriptBin "workspaces" ''
       declare -A workspaces
       workspaces=(
-        ${
-          concatMapStrings (drv: ''
-            ["${drv.name}"]="${drv}"
-          '') workspaces
-        }
+        ${concatMapStringsSep "\n  " (w: ''["${w.name}"]="${w.drv}"'') workspaces}
       )
       # Sorted list of workspaces for use in the 'list' and 'status' commands.
       workspaces_names=(
-        ${concatMapStringsSep " " (drv: ''"${drv.name}"'') workspaces}
+        ${concatMapStringsSep " " (w: ''"${w.name}"'') workspaces}
       )
       PREFIX=${prefix}
       ${readFile ./workspaces.sh}
@@ -237,8 +240,7 @@ let
   workspaces_def = builtins.removeAttrs config [ "_default" ];
   workspaces =
     mapAttrsToList (make_workspace global_config) workspaces_def;
-  workspaces_drv = map make_drv workspaces;
 
-  entry_script = make_entry_script global_config workspaces_drv;
+  entry_script = make_entry_script global_config workspaces;
 
 in entry_script
