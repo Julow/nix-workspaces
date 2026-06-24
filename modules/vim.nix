@@ -95,7 +95,7 @@ in
     };
   };
 
-  config = mkIf (config.vim.enable != "") {
+  config = mkIf config.vim.enable {
     vim.cli_args = [
       "-S"
       vimrc_file
