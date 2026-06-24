@@ -37,8 +37,8 @@ let
   # Import this tool
   nix-workspaces = pkgs.callPackage (pkgs.fetchgit {
     url = "https://github.com/Julow/nix-workspaces";
-    rev = "c4ab335b9be04d7622bc3fa61defa552884fcff5";
-    sha256 = "1smh95p1blq2lq2l8v85lbqa5sc66j238m40y99j4xqfnigsspq6";
+    rev = "774c324b57f357cfddacff53463c94ee3be9409e";
+    sha256 = "";
   }) { };
 
   # A reusable dev environment.
@@ -82,8 +82,8 @@ An other example, defining a more complex `ocaml_env` environment.
 let
   nix-workspaces = pkgs.callPackage (pkgs.fetchgit {
     url = "https://github.com/Julow/nix-workspaces";
-    rev = "c4ab335b9be04d7622bc3fa61defa552884fcff5";
-    sha256 = "1smh95p1blq2lq2l8v85lbqa5sc66j238m40y99j4xqfnigsspq6";
+    rev = "774c324b57f357cfddacff53463c94ee3be9409e";
+    sha256 = "";
   }) { };
 
   dev_env = {
