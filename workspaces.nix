@@ -10,6 +10,7 @@ let
 
   base_module = { config, ... }: {
     imports = [
+      modules/docker.nix
       modules/git.nix
       modules/github.nix
       modules/shell_nix.nix
