@@ -41,7 +41,7 @@ let
 
   esc = lib.escapeShellArg;
 
-  mount_args = flag: dirs: lib.concatMapStringsSep " " (dir: "-v ${esc dir}:${esc dir}:${flag}") dirs;
+  mount_args = flag: dirs: map (dir: "-v ${esc dir}:${esc dir}:${flag}") dirs;
 
   # Use -u to make the files created in the container have the right ownership
   # on the host.
@@ -52,11 +52,8 @@ let
     mkdir -p ${lib.concatMapStringsSep " " esc conf.mounts}
     ${image} | docker image load
     if [[ $# -eq 0 ]]; then set bash; fi
-    docker run --rm -ti -v "$PWD:/w" \
-      -u "$(id -u):$(id -g)" \
-      -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
-      ${mount_args "ro" conf.mounts} \
-      ${mount_args "rw" conf.mounts_read_write} \
+    docker run \
+      ${lib.concatStringsSep " \\\n  " conf.raw_docker_run_opts} \
       "cont" "$(workspaces drv "$WORKSPACE")" "$@"
   '';
 
@@ -84,10 +81,30 @@ in
       default = [ ];
       description = "Directories mounted when running the container.";
     };
+
+    raw_docker_run_opts = mkOption {
+      type = listOf str;
+      default = [ ];
+      description = "Options passed to 'docker run' in Bash syntax. Use with caution.";
+    };
   };
 
   config = mkIf conf.enable {
     buildInputs = [ cont ];
     docker.mounts = [ "/nix" ];
+    docker.raw_docker_run_opts = [
+      "--rm"
+      "-ti"
+      "-v"
+      "\"$PWD:/w\""
+      "-u"
+      "\"$(id -u):$(id -g)\""
+      "-v"
+      "/etc/passwd:/etc/passwd:ro"
+      "-v"
+      "/etc/group:/etc/group:ro"
+    ]
+    ++ mount_args "ro" conf.mounts
+    ++ mount_args "rw" conf.mounts_read_write;
   };
 }
