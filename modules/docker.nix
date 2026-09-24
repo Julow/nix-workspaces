@@ -103,6 +103,8 @@ in
       "/etc/passwd:/etc/passwd:ro"
       "-v"
       "/etc/group:/etc/group:ro"
+      "--security-opt=no-new-privileges"
+      "--cap-drop=ALL"
     ]
     ++ mount_args "ro" conf.mounts
     ++ mount_args "rw" conf.mounts_read_write;
