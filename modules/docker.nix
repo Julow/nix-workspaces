@@ -48,6 +48,15 @@ let
     v
   ]) conf.host_env_vars;
 
+  dot_git_rw =
+    if conf.dot_git_rw then
+      [ ]
+    else
+      [
+        "-v"
+        "\"$PWD/.git:/w/.git:ro\""
+      ];
+
   # Use -u to make the files created in the container have the right ownership
   # on the host.
   cont = pkgs.writeShellScriptBin "cont" ''
@@ -98,6 +107,15 @@ in
       default = [ "PATH" ];
       description = "List of host environment variables passed to the container.";
     };
+
+    dot_git_rw = mkOption {
+      type = bool;
+      default = false;
+      description = ''
+        Whether .git should be mounted read-write. By default, it's mounted
+        read-only to prevent arbitrary execution on the host via hooks.
+      '';
+    };
   };
 
   config = mkIf conf.enable {
@@ -122,6 +140,7 @@ in
     ]
     ++ mount_args "ro" conf.mounts
     ++ mount_args "rw" conf.mounts_read_write
-    ++ host_env_vars;
+    ++ host_env_vars
+    ++ dot_git_rw;
   };
 }
