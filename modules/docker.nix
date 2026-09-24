@@ -43,6 +43,11 @@ let
 
   mount_args = flag: dirs: map (dir: "-v ${esc dir}:${esc dir}:${flag}") dirs;
 
+  host_env_vars = lib.concatMap (v: [
+    "-e"
+    v
+  ]) conf.host_env_vars;
+
   # Use -u to make the files created in the container have the right ownership
   # on the host.
   cont = pkgs.writeShellScriptBin "cont" ''
@@ -87,11 +92,20 @@ in
       default = [ ];
       description = "Options passed to 'docker run' in Bash syntax. Use with caution.";
     };
+
+    host_env_vars = mkOption {
+      type = listOf str;
+      default = [ "PATH" ];
+      description = "List of host environment variables passed to the container.";
+    };
   };
 
   config = mkIf conf.enable {
     buildInputs = [ cont ];
-    docker.mounts = [ "/nix" ];
+    docker.mounts = [
+      "/nix/store"
+      "/run/current-system/sw"
+    ];
     docker.raw_docker_run_opts = [
       "--rm"
       "-ti"
@@ -107,6 +121,7 @@ in
       "--cap-drop=ALL"
     ]
     ++ mount_args "ro" conf.mounts
-    ++ mount_args "rw" conf.mounts_read_write;
+    ++ mount_args "rw" conf.mounts_read_write
+    ++ host_env_vars;
   };
 }
