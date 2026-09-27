@@ -64,11 +64,16 @@ let
     # Make sure all the mounted directories are created, otherwise docker
     # will create them with owner root.
     mkdir -p ${lib.concatMapStringsSep " " esc conf.mounts}
-    ${image} | docker image load
+    # Use the tag to avoid loading the image each time
+    image_tag="cont-$WORKSPACE:${baseNameOf image.outPath}"
+    if ! docker image inspect "$image_tag" &>/dev/null; then
+      docker image rm "cont-$WORKSPACE" 2>/dev/null || true
+      ${image} -t "$image_tag" | docker image load
+    fi
     if [[ $# -eq 0 ]]; then set bash; fi
     docker run \
       ${lib.concatStringsSep " \\\n  " conf.raw_docker_run_opts} \
-      "cont" "$(workspaces drv "$WORKSPACE")" "$@"
+      "$image_tag" "$(workspaces drv "${config.name}")" "$@"
   '';
 
 in
