@@ -65,9 +65,10 @@ let
     # will create them with owner root.
     mkdir -p ${lib.concatMapStringsSep " " esc conf.mounts}
     # Use the tag to avoid loading the image each time
-    image_tag="cont-$WORKSPACE:${baseNameOf image.outPath}"
+    image_name="''${WORKSPACE,,}"
+    image_tag="cont-$image_name:${baseNameOf image.outPath}"
     if ! docker image inspect "$image_tag" &>/dev/null; then
-      docker image rm "cont-$WORKSPACE" 2>/dev/null || true
+      docker image rm "cont-$image_name" 2>/dev/null || true
       ${image} -t "$image_tag" | docker image load
     fi
     if [[ $# -eq 0 ]]; then set bash; fi
