@@ -197,13 +197,17 @@ let
     stdenv.mkDerivation {
       name = strings.sanitizeDerivationName w.name;
 
-      inherit (w) init_script activation_script activation_script_top activation_command;
+      inherit (w) init_script;
+
+      activation_script = ''
+        ${w.activation_script_top}
+        ${w.activation_script}
+        ${w.activation_command}
+      '';
 
       passAsFile = [
         "init_script"
         "activation_script"
-        "activation_script_top"
-        "activation_command"
       ];
 
       # Similar to 'pkgs.writeShellScriptBin', inlined to avoid generating many
@@ -220,7 +224,7 @@ let
         cp ${w.env_script_final} $out/bin/workspace-env
         {
           echo "#!${pkgs.runtimeShell}"
-          cat ${w.env_script_final} $activation_script_topPath $activation_scriptPath $activation_commandPath
+          cat ${w.env_script_final} $activation_scriptPath
         } > $out/bin/workspace-activate
         chmod +x $out/bin/workspace-{init,activate}
         ${stdenv.shell} -n $out/bin/workspace-*
