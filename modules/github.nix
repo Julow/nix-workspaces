@@ -50,7 +50,8 @@ in {
       type = types.nullOr types.str;
       default = null;
       description = ''
-        Same as the 'origin' option but for a remote named 'up'.
+        Same as the 'origin' option but for a remote named 'up'. If set, it is
+        also the main_remote.
       '';
     };
 
@@ -83,5 +84,7 @@ in {
       up = lib.mkIf (conf.up != null) (mkFetchUrl conf.up);
       origin = lib.mkIf (conf.origin != null) (mkPushPullUrl conf.origin);
     } // lib.genAttrs conf.extra_remotes mkPushPullUrl;
+
+    git.main_remote = lib.mkDefault (if conf.up != null then "up" else "origin");
   };
 }
