@@ -10,9 +10,9 @@ open_workspace ()
   p=$PREFIX/$wname
   pkg=${workspaces[$wname]:?Workspace $wname not found.}
 
+  # First time opening this workspace
   if ! [[ -d "$p" ]]; then
-    mkdir -p "$p" # side effect
-    # First time opening this workspace, call 'workspace-init'
+    mkdir -p "$p"
     cd "$p"
     "$pkg"/bin/workspace-init
   fi

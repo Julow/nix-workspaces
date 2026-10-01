@@ -32,14 +32,16 @@ in {
   };
 
   config = mkIf conf.enable {
-    activation_script = ''
+    activation_script_top = ''
       export XDG_CONFIG_HOME=$HOME/${escapeShellArg config.cache_dir}/xdg/config
 
       mkdir -p ${
         concatStringsSep " "
         (map (p: ''"$XDG_CONFIG_HOME"/${escapeShellArg p}'') files_prefixes)
       }
+    '';
 
+    activation_script = ''
       ${concatStringsSep "\n" (mapAttrsToList (rel: dst: ''
         ln -sf ${escapeShellArg dst} "$XDG_CONFIG_HOME"/${escapeShellArg rel}
       '') conf.files)}

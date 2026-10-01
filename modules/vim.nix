@@ -34,11 +34,14 @@ let
     config = mkIf config.vim.session {
       vim.cli_args_unescaped = [
         "-S"
-        session_path_esc
+        "\"$session_path\""
       ];
 
-      activation_script = ''
+      activation_script_top = ''
         session_path=${session_path_esc}
+      '';
+
+      activation_script = ''
         if ! [[ -e $session_path ]]; then
           echo "let v:this_session = \"$session_path\"" > "$session_path"
         fi

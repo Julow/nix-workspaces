@@ -49,6 +49,12 @@ let
         '';
       };
 
+      activation_script_top = mkOption {
+        type = types.lines;
+        default = "";
+        description = "Lines inserted at the top of the activation script.";
+      };
+
       command = mkOption {
         type = types.str;
         default = "${pkgs.bashInteractive}/bin/bash";
@@ -108,7 +114,7 @@ let
     };
 
     config = {
-      activation_script = ''
+      activation_script_top = ''
         mkdir -p "$HOME/${config.cache_dir}"
         export WORKSPACE=${config.name}
         export HISTFILE=$HOME/${config.cache_dir}/bash_history
@@ -191,9 +197,14 @@ let
     stdenv.mkDerivation {
       name = strings.sanitizeDerivationName w.name;
 
-      inherit (w) init_script activation_script activation_command;
+      inherit (w) init_script activation_script activation_script_top activation_command;
 
-      passAsFile = [ "init_script" "activation_script" "activation_command" ];
+      passAsFile = [
+        "init_script"
+        "activation_script"
+        "activation_script_top"
+        "activation_command"
+      ];
 
       # Similar to 'pkgs.writeShellScriptBin', inlined to avoid generating many
       # store paths.
@@ -209,7 +220,7 @@ let
         cp ${w.env_script_final} $out/bin/workspace-env
         {
           echo "#!${pkgs.runtimeShell}"
-          cat ${w.env_script_final} $activation_scriptPath $activation_commandPath
+          cat ${w.env_script_final} $activation_script_topPath $activation_scriptPath $activation_commandPath
         } > $out/bin/workspace-activate
         chmod +x $out/bin/workspace-{init,activate}
         ${stdenv.shell} -n $out/bin/workspace-*
