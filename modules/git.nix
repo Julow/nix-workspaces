@@ -116,7 +116,6 @@ in {
             ""
         }
       ''}
-      git fetch --all --tags --update-head-ok --no-show-forced-updates --force
     '';
 
     activation_script = ''
